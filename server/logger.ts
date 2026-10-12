@@ -3,7 +3,7 @@ import { config } from './config.js';
 type LogLevel = 'info' | 'warn' | 'error' | 'debug' | 'critical';
 
 // Sensitive keys to redact from logs
-const SENSITIVE_KEYS = ['botToken', 'token', 'secret', 'password', 'apiKey', 'authorization'];
+const SENSITIVE_KEYS = ['botToken', 'token', 'secret', 'password', 'apiKey', 'authorization', 'initdata', 'x-init-data'];
 
 function scrubDetails(details: any): any {
   if (!details || typeof details !== 'object') return details;

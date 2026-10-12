@@ -10,6 +10,7 @@ vi.mock('../db.js', () => ({
     connect: vi.fn(),
   },
   isDbActive: vi.fn(),
+  setDbConnected: vi.fn(),
 }));
 
 vi.mock('../config.js', () => ({

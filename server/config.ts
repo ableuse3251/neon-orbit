@@ -10,6 +10,9 @@ const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
 
 export function validateProductionConfig(cfg: typeof config) {
   if (cfg.nodeEnv === 'production') {
+    if (cfg.devAuthBypass) {
+      throw new Error('CRITICAL CONFIGURATION ERROR: DEV_AUTH_BYPASS is strictly forbidden in production.');
+    }
     if (!cfg.jwtSecret || cfg.jwtSecret === 'default_jwt_secret_change_me') {
       throw new Error('CRITICAL CONFIGURATION ERROR: Default or empty JWT_SECRET is forbidden in production.');
     }
@@ -33,7 +36,7 @@ export const config = {
   nodeEnv,
   botToken,
   botUsername: process.env.BOT_USERNAME || 'Neon_orbitbot',
-  devAuthBypass: nodeEnv !== 'production' && process.env.DEV_AUTH_BYPASS === 'true',
+  devAuthBypass: nodeEnv === 'production' ? false : (process.env.DEV_AUTH_BYPASS === 'true'),
   mockModeAllowed: nodeEnv === 'production' ? false : (process.env.ENABLE_MOCK_GAME === 'true' || nodeEnv !== 'production'),
   appUrl: process.env.APP_URL || '',
   adminTelegramIds: (process.env.ADMIN_TELEGRAM_IDS || '')

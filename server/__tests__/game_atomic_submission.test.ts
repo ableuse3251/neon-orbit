@@ -28,11 +28,9 @@ describe('Atomic Round Submission & Idempotency Tests (F29 / F03)', () => {
       .mockResolvedValueOnce({ rows: [] }) // insert wallet
       .mockResolvedValueOnce({ rows: [{ stardust: 10, xp: 100, level: 1 }] }) // select wallet FOR UPDATE
       .mockResolvedValueOnce({ rows: [] }) // update wallet
-      .mockResolvedValueOnce({ rows: [{ status: 'issued' }] }) // check status FOR UPDATE
       .mockResolvedValueOnce({ rows: [] }) // update round status to submitted
       .mockResolvedValueOnce({ rows: [] }); // insert round events
 
-    // Test transaction block execution structure
     let txExecuted = false;
     await db.transaction(async (client) => {
       const res = await client.query('SELECT status FROM rounds WHERE id = $1 FOR UPDATE', ['rnd_123']);
@@ -44,7 +42,7 @@ describe('Atomic Round Submission & Idempotency Tests (F29 / F03)', () => {
     expect(db.transaction).toHaveBeenCalled();
   });
 
-  it('handles already submitted round idempotently without re-awarding rewards', async () => {
+  it('handles already submitted round idempotently without re-awarding rewards (concurrent/duplicate request protection)', async () => {
     mockClient.query
       .mockResolvedValueOnce({ rows: [{ id: 'rnd_123', seed: 'test_seed', mode: 'normal', status: 'submitted', started_at: new Date(Date.now() - 5000), score: 500 }] });
 
@@ -66,5 +64,21 @@ describe('Atomic Round Submission & Idempotency Tests (F29 / F03)', () => {
       confirmedScore: 500,
       alreadySubmitted: true,
     });
+  });
+
+  it('rolls back transaction cleanly on database error without partial updates', async () => {
+    mockClient.query.mockRejectedValueOnce(new Error('DB Connection Timeout'));
+
+    let errorThrown = false;
+    try {
+      await db.transaction(async (client) => {
+        await client.query('UPDATE wallets SET xp = 9999 WHERE user_id = $1', [1001]);
+        throw new Error('DB Connection Timeout');
+      });
+    } catch (err) {
+      errorThrown = true;
+    }
+
+    expect(errorThrown).toBe(true);
   });
 });

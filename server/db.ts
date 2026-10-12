@@ -6,6 +6,10 @@ const { Pool } = pg;
 export let pool: pg.Pool | null = null;
 let isDbConnected = false;
 
+export function setDbConnected(connected: boolean) {
+  isDbConnected = connected;
+}
+
 if (config.databaseUrl) {
   try {
     const poolMax = Number(process.env.DB_POOL_MAX || 25);
@@ -43,6 +47,10 @@ export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(
       return res;
     } catch (err) {
       console.error('Database query error:', err);
+      // If connection-level error, mark as disconnected
+      if ((err as any).code && ['ECONNREFUSED', 'ETIMEDOUT', '57P01', '08006', '08001'].includes((err as any).code)) {
+        isDbConnected = false;
+      }
       throw err;
     }
   }
@@ -72,6 +80,7 @@ export async function transaction<T>(
     await client.query('BEGIN');
     const result = await callback(client);
     await client.query('COMMIT');
+    isDbConnected = true;
     return result;
   } catch (err) {
     await client.query('ROLLBACK');
@@ -91,10 +100,11 @@ export async function checkDbHealth(): Promise<{ status: 'ok' | 'degraded' | 'di
 
   try {
     const res = await pool.query('SELECT 1 as alive');
-    if (res.rows[0]?.alive === 1) {
+    if (res.rows[0]?.alive === 1 || res.rows[0]?.['?column?'] === 1) {
       isDbConnected = true;
       return { status: 'ok' };
     }
+    isDbConnected = false;
     return { status: 'degraded', message: 'Unexpected response from database' };
   } catch (err) {
     isDbConnected = false;
@@ -109,4 +119,5 @@ export async function closeDb(): Promise<void> {
   if (pool) {
     await pool.end();
   }
+  isDbConnected = false;
 }

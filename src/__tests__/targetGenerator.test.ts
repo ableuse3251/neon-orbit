@@ -25,9 +25,6 @@ describe('Seed-Based Target Generator & Anti-Cheat Validation (Stage F)', () => 
 
   it('generates new Stage F targets (magnet, double_beacon, black_hole, boss_meteor)', () => {
     const targets = generateRoundTargets('stage_f_multimode_seed', 'classic');
-    const types = new Set(targets.map((t) => t.type));
-
-    // Ensure at least some new types appear or generate correctly
     expect(targets.length).toBeGreaterThan(20);
   });
 
@@ -68,5 +65,34 @@ describe('Seed-Based Target Generator & Anti-Cheat Validation (Stage F)', () => 
     const result = recalculateRound(seed, spamClicks, 45000, 'classic');
     expect(result.isValid).toBe(false);
     expect(result.rejectionReason).toContain('Unnatural tap frequency');
+  });
+
+  it('anti-fraud: prevents duplicate hits on the same target ID', () => {
+    const seed = 'duplicate_hit_seed';
+    const targets = generateRoundTargets(seed, 'blitz');
+    const target = targets[0];
+
+    const clickLogs: ClickLog[] = [
+      { timestampMs: target.spawnTimeMs + 100, xPct: target.xPct, yPct: target.yPct, type: 'hit', targetId: target.id },
+      { timestampMs: target.spawnTimeMs + 150, xPct: target.xPct, yPct: target.yPct, type: 'hit', targetId: target.id }, // duplicate
+    ];
+
+    const result = recalculateRound(seed, clickLogs, 20000, 'blitz');
+    expect(result.hits).toBe(1);
+    expect(result.flags).toContain(`duplicate_hit_${target.id}`);
+  });
+
+  it('anti-fraud: rejects hits outside target hitbox coordinates', () => {
+    const seed = 'hitbox_seed';
+    const targets = generateRoundTargets(seed, 'blitz');
+    const target = targets[0];
+
+    const clickLogs: ClickLog[] = [
+      { timestampMs: target.spawnTimeMs + 100, xPct: target.xPct + 40, yPct: target.yPct + 40, type: 'hit', targetId: target.id }, // far away
+    ];
+
+    const result = recalculateRound(seed, clickLogs, 20000, 'blitz');
+    expect(result.hits).toBe(0);
+    expect(result.flags).toContain(`out_of_hitbox_${target.id}`);
   });
 });

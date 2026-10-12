@@ -40,25 +40,28 @@ export function verifyTelegramInitData(initDataStr: string): { isValid: boolean;
     return { isValid: false, reason: 'Missing initData or bot token' };
   }
 
-  const parsed = parseInitData(initDataStr);
-  if (!parsed || !parsed.hash) {
+  let urlParams: URLSearchParams;
+  try {
+    urlParams = new URLSearchParams(initDataStr);
+  } catch {
     return { isValid: false, reason: 'Invalid initData format' };
   }
 
-  const { hash, authDate, userObj, urlParams } = parsed;
-
-  // Validate hash format (64-char hex)
+  const hash = urlParams.get('hash') || '';
   if (!hash || !/^[a-f0-9]{64}$/i.test(hash)) {
     return { isValid: false, reason: 'Invalid hash format' };
   }
 
-  // Validate auth_date presence and window
-  const now = Math.floor(Date.now() / 1000);
-  if (!authDate || isNaN(authDate)) {
-    return { isValid: false, reason: 'Missing or invalid auth_date' };
+  const authDateStr = urlParams.get('auth_date');
+  if (!authDateStr) {
+    return { isValid: false, reason: 'Missing auth_date' };
+  }
+  const authDate = Number(authDateStr);
+  if (isNaN(authDate)) {
+    return { isValid: false, reason: 'Invalid auth_date' };
   }
 
-  // Check expiration (older than 24 hours) and future date check with 5 min skew tolerance
+  const now = Math.floor(Date.now() / 1000);
   if (now - authDate > 86400) {
     return { isValid: false, reason: 'initData expired (older than 24 hours)' };
   }
@@ -66,24 +69,31 @@ export function verifyTelegramInitData(initDataStr: string): { isValid: boolean;
     return { isValid: false, reason: 'initData auth_date is in the future' };
   }
 
-  // Build canonical data_check_string
-  const pairs = initDataStr.split('&');
-  const keyValuePairs: { key: string; value: string }[] = [];
-  for (const pair of pairs) {
-    const eqIdx = pair.indexOf('=');
-    if (eqIdx === -1) continue;
-    const key = pair.slice(0, eqIdx);
-    const value = pair.slice(eqIdx + 1);
-    if (key === 'hash') continue;
-    keyValuePairs.push({ key, value });
+  const userStr = urlParams.get('user');
+  let userObj: any = null;
+  if (userStr) {
+    try {
+      userObj = JSON.parse(userStr);
+    } catch {
+      return { isValid: false, reason: 'Invalid user JSON format' };
+    }
   }
 
-  keyValuePairs.sort((a, b) => a.key.localeCompare(b.key));
-  const dataCheckString = keyValuePairs.map(p => `${p.key}=${p.value}`).join('\n');
+  // Build canonical data_check_string according to Telegram Web Apps specification:
+  // All received fields (except hash), sorted alphabetically by key, formatted as key=<value> separated by \n.
+  // URLSearchParams automatically handles percent-decoding of values.
+  const pairs: [string, string][] = [];
+  for (const [key, value] of urlParams.entries()) {
+    if (key === 'hash') continue;
+    pairs.push([key, value]);
+  }
+
+  pairs.sort((a, b) => a[0].localeCompare(b[0]));
+  const dataCheckString = pairs.map(([k, v]) => `${k}=${v}`).join('\n');
+
   const secretKey = crypto.createHmac('sha256', 'WebAppData').update(config.botToken).digest();
   const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
-  // Use timingSafeEqual to prevent timing attacks
   try {
     const calcBuf = Buffer.from(calculatedHash, 'hex');
     const recvBuf = Buffer.from(hash, 'hex');
@@ -99,15 +109,19 @@ export function verifyTelegramInitData(initDataStr: string): { isValid: boolean;
 }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
-  let initDataHeader = req.headers['authorization'] || (req.headers['x-init-data'] as string) || (req.query.initData as string) || '';
+  let initDataHeader = req.headers['authorization'] || (req.headers['x-init-data'] as string) || '';
 
-  if (initDataHeader.startsWith('tma ')) {
-    initDataHeader = initDataHeader.slice(4).trim();
-  } else if (initDataHeader.startsWith('Bearer ')) {
-    initDataHeader = initDataHeader.slice(7).trim();
+  if (typeof initDataHeader === 'string') {
+    if (initDataHeader.startsWith('tma ')) {
+      initDataHeader = initDataHeader.slice(4).trim();
+    } else if (initDataHeader.startsWith('Bearer ')) {
+      initDataHeader = initDataHeader.slice(7).trim();
+    }
+  } else {
+    initDataHeader = '';
   }
 
-  req.initDataRaw = initDataHeader;
+  req.initDataRaw = '[REDACTED]';
 
   const verification = verifyTelegramInitData(initDataHeader);
 

@@ -244,7 +244,17 @@ export function recalculateRound(
   // Track boss HP tracking on server validation
   const bossHpTracker = new Map<string, number>();
 
+  // Track hit targets to prevent duplicate/multi-hit exploitation
+  const hitTargets = new Set<string>();
+
   for (const log of normalizedLogs) {
+    if (typeof log.timestampMs !== 'number' || !isFinite(log.timestampMs) || log.timestampMs < 0) {
+      misses++;
+      combo = 0;
+      flags.push('invalid_timestamp');
+      continue;
+    }
+
     if (log.type === 'hit') {
       if (!log.targetId || !targetMap.has(log.targetId)) {
         misses++;
@@ -254,6 +264,15 @@ export function recalculateRound(
       }
 
       const target = targetMap.get(log.targetId)!;
+
+      // Prevent duplicate hit on the same non-boss target
+      if (target.type !== 'boss_meteor' && hitTargets.has(target.id)) {
+        misses++;
+        combo = 0;
+        flags.push(`duplicate_hit_${target.id}`);
+        continue;
+      }
+
       if (
         log.timestampMs < target.spawnTimeMs - 250 ||
         log.timestampMs > target.spawnTimeMs + target.durationMs + 500
@@ -264,18 +283,31 @@ export function recalculateRound(
         continue;
       }
 
+      // Spatial distance check (click proximity to target coordinates)
+      const dx = (log.xPct ?? target.xPct) - target.xPct;
+      const dy = (log.yPct ?? target.yPct) - target.yPct;
+      const distanceSq = dx * dx + dy * dy;
+      if (distanceSq > 400) { // ~20% max distance tolerance
+        misses++;
+        combo = 0;
+        flags.push(`out_of_hitbox_${target.id}`);
+        continue;
+      }
+
       if (target.type === 'boss_meteor') {
         const currentHp = bossHpTracker.get(target.id) ?? target.maxHp ?? 3;
         if (currentHp > 1) {
           bossHpTracker.set(target.id, currentHp - 1);
           hits++;
-          // Partial hit on boss
           score += 100;
           continue;
         } else {
           bossesDefeated++;
           bossHpTracker.delete(target.id);
+          hitTargets.add(target.id);
         }
+      } else {
+        hitTargets.add(target.id);
       }
 
       hits++;

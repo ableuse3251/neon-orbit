@@ -137,8 +137,15 @@ const handleSubmitRound = async (req: Request, res: Response) => {
     }
   }
 
-  let dbRound: any = null;
-  let durationMs = 45000;
+  let confirmedScore = 0;
+  let earnedXp = 0;
+  let earnedStardust = 0;
+  let newLevel = 1;
+  let isLevelUp = false;
+  let evalResult: any = null;
+  let roundMode = 'normal';
+  let isShadowBanned = false;
+  let alreadySubmittedResult: any = null;
 
   if (isDbActive()) {
     try {
@@ -149,143 +156,115 @@ const handleSubmitRound = async (req: Request, res: Response) => {
             message: 'Server-issued database round ID is required in production.',
           });
         }
-      } else {
-        const roundRes = await query(
+      }
+
+      const txResult = await transaction(async (client) => {
+        // 1. Lock and fetch round
+        const roundRes = await client.query(
           `SELECT id, seed, mode, status, started_at, score FROM rounds WHERE id = $1 AND user_id = $2 FOR UPDATE`,
           [roundId, user.id]
         );
+
         if (roundRes.rows.length === 0) {
-          return res.status(404).json({ error: 'Round not found or belongs to another user' });
+          return { status: 404, json: { error: 'Round not found or belongs to another user' } };
         }
 
-        dbRound = roundRes.rows[0];
+        const dbRound = roundRes.rows[0];
+        roundMode = dbRound.mode || 'normal';
 
-        // Idempotency check: if already submitted, return success idempotently without re-crediting rewards
+        // 2. Idempotency check: if already submitted, return success idempotently without re-crediting rewards
         if (dbRound.status === 'submitted') {
-          return res.json({
-            success: true,
-            confirmedScore: dbRound.score || 0,
-            alreadySubmitted: true,
-            message: 'Round was already submitted successfully',
-          });
+          return {
+            status: 200,
+            json: {
+              success: true,
+              confirmedScore: dbRound.score || 0,
+              alreadySubmitted: true,
+              message: 'Round was already submitted successfully',
+            },
+          };
         }
 
         if (dbRound.status !== 'issued') {
-          return res.status(400).json({ error: 'Round has already been rejected or completed' });
+          return { status: 400, json: { error: 'Round has already been rejected or completed' } };
         }
 
-        // Check round expiration (max 120 seconds from start)
+        // 3. Check round expiration (max 120 seconds from start)
         const ageMs = Date.now() - new Date(dbRound.started_at).getTime();
         if (ageMs > 120000) {
-          await query(`UPDATE rounds SET status = 'rejected', flags = $1 WHERE id = $2`, [
+          await client.query(`UPDATE rounds SET status = 'rejected', flags = $1 WHERE id = $2`, [
             JSON.stringify({ reason: 'expired', ageMs }),
             dbRound.id,
           ]);
-          return res.status(400).json({ error: 'Round expired', message: 'Round took too long to complete' });
+          return { status: 400, json: { error: 'Round expired', message: 'Round took too long to complete' } };
         }
 
-        durationMs = ageMs;
-      }
-    } catch (err) {
-      console.error('Fetch round error:', err);
-      return res.status(500).json({ error: 'Internal database error fetching round' });
-    }
-  } else if (config.nodeEnv === 'production' || !config.mockModeAllowed) {
-    return res.status(503).json({ error: 'Database unavailable in production' });
-  }
+        const durationMs = ageMs;
 
-  const seedStr = dbRound?.seed;
-  if (!seedStr) {
-    if (config.nodeEnv === 'production' || !config.mockModeAllowed) {
-      return res.status(400).json({
-        error: 'Invalid round',
-        message: 'Valid server-issued round required in production',
-      });
-    }
-  }
-  const effectiveSeed = seedStr || `norm_${Date.now()}`;
-  const evalResult = recalculateRound(effectiveSeed, clickLogs, durationMs);
-
-  // Check if user is shadow banned
-  let isShadowBanned = false;
-
-  if (isDbActive()) {
-    try {
-      const userRes = await query(`SELECT shadow_banned, is_banned FROM users WHERE id = $1`, [user.id]);
-      if (userRes.rows.length > 0) {
-        if (userRes.rows[0].is_banned) {
-          return res.status(403).json({ error: 'Account banned' });
+        // 4. Check user ban status with row lock
+        const userRes = await client.query(`SELECT shadow_banned, is_banned FROM users WHERE id = $1 FOR UPDATE`, [user.id]);
+        if (userRes.rows.length > 0) {
+          if (userRes.rows[0].is_banned) {
+            return { status: 403, json: { error: 'Account banned' } };
+          }
+          isShadowBanned = Boolean(userRes.rows[0].shadow_banned);
         }
-        isShadowBanned = Boolean(userRes.rows[0].shadow_banned);
-      }
-    } catch (err) {
-      console.error('Fetch user ban status error:', err);
-    }
-  }
 
-  // Handle suspicious/invalid rounds
-  if (!evalResult.isValid) {
-    if (isDbActive() && dbRound) {
-      try {
-        await query(
-          `UPDATE rounds SET status = 'rejected', flags = $1 WHERE id = $2`,
-          [JSON.stringify({ flags: evalResult.flags }), dbRound.id]
-        );
+        // 5. Recalculate round score & anti-cheat evaluation
+        const effectiveSeed = dbRound.seed || `norm_${Date.now()}`;
+        evalResult = recalculateRound(effectiveSeed, clickLogs, durationMs);
 
-        // Increment user suspicion count in DB
-        const suspicionRes = await query(
-          `SELECT COUNT(*) as cnt FROM rounds WHERE user_id = $1 AND status = 'rejected'`,
-          [user.id]
-        );
-        const rejectedCount = Number(suspicionRes.rows[0]?.cnt || 0);
+        if (!evalResult.isValid) {
+          await client.query(
+            `UPDATE rounds SET status = 'rejected', flags = $1 WHERE id = $2`,
+            [JSON.stringify({ flags: evalResult.flags }), dbRound.id]
+          );
 
-        if (rejectedCount >= 3 && !isShadowBanned) {
-          await query(`UPDATE users SET shadow_banned = true WHERE id = $1`, [user.id]);
-          isShadowBanned = true;
+          const suspicionRes = await client.query(
+            `SELECT COUNT(*) as cnt FROM rounds WHERE user_id = $1 AND status = 'rejected'`,
+            [user.id]
+          );
+          const rejectedCount = Number(suspicionRes.rows[0]?.cnt || 0);
+
+          if (rejectedCount >= 3 && !isShadowBanned) {
+            await client.query(`UPDATE users SET shadow_banned = true WHERE id = $1`, [user.id]);
+            isShadowBanned = true;
+          }
+
+          if (!isShadowBanned) {
+            return {
+              status: 403,
+              json: {
+                success: false,
+                rejected: true,
+                flags: evalResult.flags,
+                reason: 'Round failed server verification check',
+              },
+            };
+          }
         }
-      } catch (err) {
-        console.error('Error recording rejected round:', err);
-      }
-    }
 
-    if (!isShadowBanned) {
-      return res.status(403).json({
-        success: false,
-        rejected: true,
-        flags: evalResult.flags,
-        reason: 'Round failed server verification check',
-      });
-    }
-  }
+        // 6. Server Golden Hour Calculation
+        const eventStatus = await isGoldenHourActiveServer();
+        confirmedScore = eventStatus.isActive ? evalResult.recalculatedScore * eventStatus.multiplier : evalResult.recalculatedScore;
 
-  // Server Golden Hour Calculation from single source of truth app_config
-  const eventStatus = await isGoldenHourActiveServer();
-  const confirmedScore = eventStatus.isActive ? evalResult.recalculatedScore * eventStatus.multiplier : evalResult.recalculatedScore;
+        // 7. Calculate rewards
+        const rewards = calculateRoundRewards({
+          score: confirmedScore,
+          accuracy: evalResult.accuracy,
+          maxCombo: evalResult.maxCombo,
+          goldenBeaconsHit: evalResult.goldenBeaconsHit,
+        } as any);
 
-  // Calculate rewards server-side
-  const rewards = calculateRoundRewards({
-    score: confirmedScore,
-    accuracy: evalResult.accuracy,
-    maxCombo: evalResult.maxCombo,
-    goldenBeaconsHit: evalResult.goldenBeaconsHit,
-  } as any);
+        earnedXp = rewards.earnedXp;
+        earnedStardust = rewards.earnedStardust;
 
-  let newLevel = 1;
-  let isLevelUp = false;
-  let totalStardust = 0;
-  let totalXp = 0;
-  let txSuccess = false;
-
-  if (isDbActive()) {
-    try {
-      await transaction(async (client) => {
-        // Ensure wallet exists for user
+        // 8. Ensure wallet and lock
         await client.query(
           `INSERT INTO wallets (user_id, stardust, xp, level) VALUES ($1, 0, 0, 1) ON CONFLICT (user_id) DO NOTHING`,
           [user.id]
         );
 
-        // Fetch current wallet with row lock
         const wRes = await client.query(`SELECT stardust, xp, level FROM wallets WHERE user_id = $1 FOR UPDATE`, [user.id]);
         let currentXp = 0;
         let currentStardust = 0;
@@ -297,51 +276,64 @@ const handleSubmitRound = async (req: Request, res: Response) => {
           currentLevel = Number(wRes.rows[0].level);
         }
 
-        totalXp = currentXp + rewards.earnedXp;
-        totalStardust = currentStardust + rewards.earnedStardust;
+        const totalXp = currentXp + earnedXp;
+        const totalStardust = currentStardust + earnedStardust;
         const levelInfo = getLevelFromXp(totalXp);
         newLevel = levelInfo.level;
         isLevelUp = newLevel > currentLevel;
 
-        // Update wallet
         await client.query(
           `UPDATE wallets SET xp = $1, stardust = $2, level = $3 WHERE user_id = $4`,
           [totalXp, totalStardust, newLevel, user.id]
         );
 
-        // Update round status to submitted
-        if (dbRound) {
-          const checkRes = await client.query(`SELECT status FROM rounds WHERE id = $1 FOR UPDATE`, [dbRound.id]);
-          if (checkRes.rows[0]?.status === 'submitted') {
-            txSuccess = true;
-            return;
-          }
+        // 9. Update round status to submitted atomically
+        await client.query(
+          `UPDATE rounds 
+           SET finished_at = NOW(), status = 'submitted', score = $1, taps = $2, hits = $3, max_combo = $4, duration_ms = $5, flags = $6
+           WHERE id = $7`,
+          [
+            confirmedScore,
+            evalResult.totalTaps,
+            evalResult.hits,
+            evalResult.maxCombo,
+            durationMs,
+            JSON.stringify({ verified: true, goldenHour: eventStatus.isActive, multiplier: eventStatus.multiplier }),
+            dbRound.id,
+          ]
+        );
 
-          await client.query(
-            `UPDATE rounds 
-             SET finished_at = NOW(), status = 'submitted', score = $1, taps = $2, hits = $3, max_combo = $4, duration_ms = $5, flags = $6
-             WHERE id = $7`,
-            [
-              confirmedScore,
-              evalResult.totalTaps,
-              evalResult.hits,
-              evalResult.maxCombo,
-              durationMs,
-              JSON.stringify({ verified: true, goldenHour: eventStatus.isActive, multiplier: eventStatus.multiplier }),
-              dbRound.id,
-            ]
-          );
-
-          // Insert round click logs
-          if (clickLogs.length > 0) {
-            await client.query(`INSERT INTO round_events (round_id, payload) VALUES ($1, $2)`, [
-              dbRound.id,
-              JSON.stringify(clickLogs),
-            ]);
-          }
+        if (clickLogs.length > 0) {
+          await client.query(`INSERT INTO round_events (round_id, payload) VALUES ($1, $2)`, [
+            dbRound.id,
+            JSON.stringify(clickLogs),
+          ]);
         }
-        txSuccess = true;
+
+        return {
+          status: 200,
+          json: {
+            success: true,
+            confirmedScore,
+            earnedXp,
+            earnedStardust,
+            level: newLevel,
+            isLevelUp,
+            rankTitle: getRankTitle(confirmedScore),
+            flags: evalResult.flags,
+          },
+        };
       });
+
+      if (txResult.status === 200 && !txResult.json.alreadySubmitted && !isShadowBanned) {
+        try {
+          await updateLeaderboardOnRoundSubmit(user.id, confirmedScore, roundMode, chatId);
+        } catch (lbErr) {
+          console.error('Leaderboard update error after reward credit:', lbErr);
+        }
+      }
+
+      return res.status(txResult.status).json(txResult.json);
     } catch (err) {
       console.error('Database round submit transaction error:', err);
       return res.status(500).json({
@@ -349,41 +341,33 @@ const handleSubmitRound = async (req: Request, res: Response) => {
         message: 'Failed to process round submission and allocate rewards securely',
       });
     }
-
-    if (!txSuccess) {
-      return res.status(500).json({
-        error: 'Transaction failed',
-        message: 'Round submission transaction did not complete successfully',
-      });
-    }
   } else {
-    totalXp = rewards.earnedXp;
-    totalStardust = rewards.earnedStardust;
-    newLevel = getLevelFromXp(totalXp).level;
+    // Fallback mode for testing without DB
+    const effectiveSeed = `norm_${Date.now()}`;
+    evalResult = recalculateRound(effectiveSeed, clickLogs, 45000);
+    confirmedScore = evalResult.recalculatedScore;
+    const rewards = calculateRoundRewards({
+      score: confirmedScore,
+      accuracy: evalResult.accuracy,
+      maxCombo: evalResult.maxCombo,
+      goldenBeaconsHit: evalResult.goldenBeaconsHit,
+    } as any);
+    earnedXp = rewards.earnedXp;
+    earnedStardust = rewards.earnedStardust;
+    newLevel = getLevelFromXp(earnedXp).level;
     isLevelUp = newLevel > 1;
+
+    return res.json({
+      success: true,
+      confirmedScore,
+      earnedXp,
+      earnedStardust,
+      level: newLevel,
+      isLevelUp,
+      rankTitle: getRankTitle(confirmedScore),
+      flags: evalResult.flags,
+    });
   }
-
-  // Update Leaderboards (ONLY if transaction succeeded and NOT shadow banned!)
-  const rankTitle = getRankTitle(confirmedScore);
-
-  if (!isShadowBanned) {
-    try {
-      await updateLeaderboardOnRoundSubmit(user.id, confirmedScore, dbRound?.mode || 'normal', chatId);
-    } catch (lbErr) {
-      console.error('Leaderboard update error after reward credit:', lbErr);
-    }
-  }
-
-  return res.json({
-    success: true,
-    confirmedScore,
-    earnedXp: rewards.earnedXp,
-    earnedStardust: rewards.earnedStardust,
-    level: newLevel,
-    isLevelUp,
-    rankTitle,
-    flags: evalResult.flags,
-  });
 };
 
 router.post('/round/submit', requireAuth, handleSubmitRound);

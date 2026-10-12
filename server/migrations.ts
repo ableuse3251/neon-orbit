@@ -1,12 +1,13 @@
 import fs from 'fs';
 import path from 'path';
-import { pool, isDbActive } from './db.js';
+import { pool, isDbActive, setDbConnected } from './db.js';
 import { config } from './config.js';
 
 export async function runMigrations(): Promise<void> {
   if (!pool) {
     if (config.mockModeAllowed) {
       console.warn('⚠️ Database pool not initialized. Skipping migrations as mock mode is allowed.');
+      setDbConnected(false);
       return;
     }
     throw new Error('Database pool not initialized. Cannot run migrations.');
@@ -25,6 +26,7 @@ export async function runMigrations(): Promise<void> {
       if (retries === 0) {
         if (config.mockModeAllowed) {
           console.warn('⚠️ Database unreachable after retries. Skipping migrations as mock mode is allowed.');
+          setDbConnected(false);
           return;
         }
         throw new Error(`Database unreachable after ${config.nodeEnv === 'production' ? 30 : 3} retries, cannot run migrations.`);
@@ -55,6 +57,7 @@ export async function runMigrations(): Promise<void> {
       try {
         await client.query('SELECT pg_advisory_unlock(7483921)');
       } catch {}
+      setDbConnected(true);
       return;
     }
 
@@ -95,6 +98,7 @@ export async function runMigrations(): Promise<void> {
       throw new Error('Schema verification failed: critical tables missing after migration.');
     }
     console.log('✅ Schema verification passed.');
+    setDbConnected(true);
   } catch (err) {
     try {
       await client.query('ROLLBACK');
