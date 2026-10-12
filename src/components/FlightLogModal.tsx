@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { RotateCcw, Share2, Trophy, Award, Zap, Crosshair } from 'lucide-react';
+import { RotateCcw, Share2, Trophy, Award, Zap, Crosshair, RefreshCw, AlertTriangle, ShieldCheck, Gamepad2 } from 'lucide-react';
 import { RoundStats, PlayerProfile } from '../types/game';
 import { shareChallengeLink, triggerHaptic } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
@@ -8,6 +8,10 @@ interface FlightLogModalProps {
   stats: RoundStats;
   profile: PlayerProfile;
   botUsername?: string;
+  isDemo?: boolean;
+  submissionState?: 'idle' | 'submitting' | 'confirmed' | 'pending' | 'rejected';
+  submissionReason?: string;
+  onRetrySubmission?: () => void;
   onRestart: () => void;
   onOpenLeaderboard: () => void;
 }
@@ -16,11 +20,15 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
   stats,
   profile,
   botUsername = 'Neon_orbitbot',
+  isDemo = false,
+  submissionState = 'confirmed',
+  submissionReason,
+  onRetrySubmission,
   onRestart,
   onOpenLeaderboard,
 }) => {
   const t = getTranslation(profile.lang);
-  const isNewRecord = stats.score > profile.highScore;
+  const isNewRecord = !isDemo && stats.score > profile.highScore;
   const [copiedLink, setCopiedLink] = useState(false);
   const cardCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -53,6 +61,68 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
             {new Date().toLocaleTimeString()}
           </span>
         </div>
+
+        {/* Demo Mode Notice */}
+        {isDemo && (
+          <div className="bg-purple-950/90 border border-purple-400/80 rounded-lg p-2.5 text-center flex items-center justify-center gap-2 text-purple-200">
+            <Gamepad2 className="w-4 h-4 text-purple-300 shrink-0" />
+            <span className="font-pixel text-[10px] uppercase tracking-wide">
+              {profile.lang === 'ru'
+                ? '🎮 ДЕМО-РЕЖИМ (БЕЗ РЕЙТИНГА) — Очки и награды не отправляются на сервер'
+                : '🎮 DEMO MODE (UNRATED) — Stats not submitted to server profile'}
+            </span>
+          </div>
+        )}
+
+        {/* Backend Verification & Submission Status Banners */}
+        {!isDemo && submissionState === 'submitting' && (
+          <div className="bg-cyan-950/80 border border-cyan-500/80 rounded-lg p-2.5 text-center flex items-center justify-center gap-2 text-cyan-200 animate-pulse">
+            <RefreshCw className="w-4 h-4 text-cyan-400 animate-spin shrink-0" />
+            <span className="font-pixel text-[10px] uppercase tracking-wide">
+              {profile.lang === 'ru' ? 'Проверка результатов на сервере...' : 'Verifying round on server...'}
+            </span>
+          </div>
+        )}
+
+        {!isDemo && submissionState === 'confirmed' && (
+          <div className="bg-emerald-950/80 border border-emerald-500/80 rounded-lg p-2 text-center flex items-center justify-center gap-2 text-emerald-200">
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="font-pixel text-[10px] uppercase tracking-wide">
+              {profile.lang === 'ru' ? 'Результат подтверждён сервером' : 'Server Verified & Rewards Granted'}
+            </span>
+          </div>
+        )}
+
+        {!isDemo && submissionState === 'pending' && (
+          <div className="bg-amber-950/90 border border-amber-500 rounded-lg p-2.5 flex flex-col items-center gap-2 text-amber-200">
+            <div className="flex items-center gap-2 text-center">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="font-pixel text-[10px] uppercase">
+                {profile.lang === 'ru'
+                  ? 'Ошибка сети. Раунд сохранён локально для повтора'
+                  : 'Network issue. Submission pending retry'}
+              </span>
+            </div>
+            {onRetrySubmission && (
+              <button
+                onClick={onRetrySubmission}
+                className="py-1 px-3 bg-amber-600 hover:bg-amber-500 text-black font-pixel text-[10px] rounded font-bold transition-all flex items-center gap-1.5 shadow"
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span>{profile.lang === 'ru' ? 'Повторить отправку' : 'Retry Submission'}</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {!isDemo && submissionState === 'rejected' && (
+          <div className="bg-red-950/90 border border-red-500 rounded-lg p-2.5 text-center flex flex-col items-center gap-1 text-red-200">
+            <span className="font-pixel text-[10px] uppercase font-bold text-red-400">
+              {profile.lang === 'ru' ? 'Результат отклонен сервером' : 'Submission Rejected'}
+            </span>
+            {submissionReason && <span className="text-[10px] opacity-80">{submissionReason}</span>}
+          </div>
+        )}
 
         {isNewRecord && (
           <div className="bg-[#ff007f]/20 border border-[#ff007f] rounded-lg p-2.5 text-center flex items-center justify-center gap-2 animate-bounce">

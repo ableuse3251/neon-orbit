@@ -28,7 +28,7 @@ import { initTelegramSDK, triggerHaptic } from './utils/telegram';
 import { getInitialProfile, saveProfile, DEFAULT_SHIPS, DEFAULT_BACKDROPS, getRankTitle } from './utils/storage';
 import { audioManager } from './utils/audio';
 import { performanceManager } from './utils/performance';
-import { flushPendingRoundsQueue } from './utils/sync';
+import { flushPendingRoundsQueue, markRoundSubmitted, savePendingRound, submitRoundLogWithRetry } from './utils/sync';
 import { getTranslation } from './utils/i18n';
 import { calculateRoundRewards, getLevelFromXp } from './utils/progression';
 import { api } from './utils/api';
@@ -187,8 +187,16 @@ export default function App() {
     }
   }, [profile.id, profile.referredBy]);
 
-  const handleStartRound = async (isDaily: boolean = false) => {
+  const [startRoundError, setStartRoundError] = useState<string | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+  const [submissionState, setSubmissionState] = useState<'idle' | 'submitting' | 'confirmed' | 'pending' | 'rejected'>('idle');
+  const [submissionReason, setSubmissionReason] = useState<string | undefined>(undefined);
+
+  const handleStartRound = async (isDaily: boolean = false, isDemo: boolean = false) => {
     triggerHaptic('medium');
+    setStartRoundError(null);
+    setSubmissionState('idle');
+    setSubmissionReason(undefined);
 
     setCurrentScore(0);
     setCombo(0);
@@ -198,26 +206,45 @@ export default function App() {
     setIsPaused(false);
     setRoundStats(null);
 
+    // Explicit Demo Mode handling
+    if (isDemo || profile.isDemo) {
+      setIsDemoMode(true);
+      const demoSeed = isDaily ? `demo_daily_${Date.now()}` : `demo_norm_${Date.now()}`;
+      const demoRoundId = `demo_${Date.now()}`;
+      setCurrentRoundId(demoRoundId);
+      setCurrentSeed(demoSeed);
+      setDailySeed(isDaily ? demoSeed : undefined);
+      setGameState('PLAYING');
+      if (profile.settings.music) {
+        audioManager.startSynthwaveLoop();
+      }
+      return;
+    }
+
+    // Production Rated Mode handling
+    setIsDemoMode(false);
     try {
       const res = await api.startRound({ mode: isDaily ? 'daily' : 'normal' });
-      if (res && res.success) {
+      if (res && res.success && res.roundId) {
         setCurrentRoundId(res.roundId);
         setCurrentSeed(res.seed);
         setDailySeed(isDaily ? res.seed : undefined);
+        setGameState('PLAYING');
+
+        if (profile.settings.music) {
+          audioManager.startSynthwaveLoop();
+        }
+      } else {
+        throw new Error((res as any)?.error || 'Failed to generate server round ID');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Start round API failed:', err);
-      const fallbackSeed = isDaily ? `daily_${new Date().toISOString().split('T')[0]}` : `norm_${Date.now()}`;
-      const fallbackRoundId = `rnd_${Date.now()}`;
-      setCurrentRoundId(fallbackRoundId);
-      setCurrentSeed(fallbackSeed);
-      setDailySeed(isDaily ? fallbackSeed : undefined);
-    }
-
-    setGameState('PLAYING');
-
-    if (profile.settings.music) {
-      audioManager.startSynthwaveLoop();
+      // DO NOT launch rated game with local fallback rnd_ timestamp
+      setStartRoundError(
+        profile.lang === 'ru'
+          ? 'Не удалось начать рейтинговый раунд на сервере. Проверьте сеть или используйте Демо-режим.'
+          : 'Failed to start server-rated session. Check connection or launch Demo Mode.'
+      );
     }
   };
 
@@ -233,17 +260,32 @@ export default function App() {
     audioManager.playBeacon();
     triggerHaptic('success');
 
+    const effectiveRoundId = stats.roundId || currentRoundId;
+
+    // Handle Explicit Demo / Unrated Gameplay
+    if (isDemoMode || effectiveRoundId?.startsWith('demo_') || profile.isDemo) {
+      const demoStats = { ...stats, roundId: effectiveRoundId || `demo_${Date.now()}` };
+      setRoundStats(demoStats);
+      setSubmissionState('confirmed');
+      setGameState('SUMMARY');
+      return;
+    }
+
     setRoundStats(stats);
     setGameState('SUMMARY');
+    setSubmissionState('submitting');
 
     // Submit round to server for official anti-cheat validation and reward calculation
     api.submitRound({
-      roundId: stats.roundId || currentRoundId || `rnd_${Date.now()}`,
+      roundId: effectiveRoundId || '',
       clickLogs: stats.clickLogs || [],
     })
       .then((res) => {
         if (res && res.success) {
-          const confirmedScore = res.confirmedScore;
+          setSubmissionState('confirmed');
+          markRoundSubmitted(effectiveRoundId || '');
+
+          const confirmedScore = res.confirmedScore ?? stats.score;
           const finalStats = { ...stats, score: confirmedScore };
           setRoundStats(finalStats);
 
@@ -257,8 +299,8 @@ export default function App() {
             const updated: PlayerProfile = {
               ...prev,
               level: res.level || prev.level,
-              xp: prev.xp + res.earnedXp,
-              stardust: prev.stardust + res.earnedStardust,
+              xp: prev.xp + (res.earnedXp || 0),
+              stardust: prev.stardust + (res.earnedStardust || 0),
               highScore: newHigh,
               dailyHighScore: finalStats.isDailySeed ? Math.max(prev.dailyHighScore, confirmedScore) : prev.dailyHighScore,
               totalRounds: prev.totalRounds + 1,
@@ -269,34 +311,60 @@ export default function App() {
           });
         } else if (res && res.rejected) {
           console.warn('Round rejected by anti-cheat verification:', res.reason);
+          setSubmissionState('rejected');
+          setSubmissionReason(res.reason || 'Anti-cheat rejected round submission');
+          markRoundSubmitted(effectiveRoundId || '');
+        } else {
+          throw new Error('Unconfirmed server response');
         }
       })
       .catch((err) => {
-        console.warn('Round submit network/offline fallback:', err);
-        const rewards = calculateRoundRewards(stats);
-        setProfile((prev) => {
-          const newHigh = Math.max(prev.highScore, stats.score);
-          const prevLvl = getLevelFromXp(prev.xp).level;
-          const newXp = prev.xp + rewards.earnedXp;
-          const newLvlInfo = getLevelFromXp(newXp);
-
-          if (newLvlInfo.level > prevLvl) {
-            setNewLevelCelebration(newLvlInfo.level);
-          }
-
-          const updated: PlayerProfile = {
-            ...prev,
-            level: newLvlInfo.level,
-            xp: newXp,
-            stardust: prev.stardust + rewards.earnedStardust,
-            highScore: newHigh,
-            totalRounds: prev.totalRounds + 1,
-          };
-          saveProfile(updated);
-          return updated;
-        });
+        console.warn('Round submit network/offline deferred to pending queue:', err);
+        setSubmissionState('pending');
+        // Save pending round ONLY if valid server round ID
+        if (effectiveRoundId && !effectiveRoundId.startsWith('rnd_') && !effectiveRoundId.startsWith('demo_')) {
+          savePendingRound({ ...stats, roundId: effectiveRoundId });
+        }
+        // DO NOT locally grant XP/stardust/records on submission failure!
       });
-  }, [currentRoundId]);
+  }, [currentRoundId, isDemoMode, profile.isDemo]);
+
+  const handleRetrySubmission = async () => {
+    if (!roundStats || !roundStats.roundId) return;
+    setSubmissionState('submitting');
+    setSubmissionReason(undefined);
+
+    const res = await submitRoundLogWithRetry(roundStats);
+    if (res.success) {
+      setSubmissionState('confirmed');
+      if (res.alreadySubmitted) return;
+
+      const confirmedScore = res.confirmedScore ?? roundStats.score;
+      setRoundStats((prev) => (prev ? { ...prev, score: confirmedScore } : null));
+
+      setProfile((prev) => {
+        const newHigh = Math.max(prev.highScore, confirmedScore);
+        if (res.isLevelUp && res.level) {
+          setNewLevelCelebration(res.level);
+        }
+        const updated: PlayerProfile = {
+          ...prev,
+          level: res.level || prev.level,
+          xp: prev.xp + (res.earnedXp || 0),
+          stardust: prev.stardust + (res.earnedStardust || 0),
+          highScore: newHigh,
+          totalRounds: prev.totalRounds + 1,
+        };
+        saveProfile(updated);
+        return updated;
+      });
+    } else if (res.rejected) {
+      setSubmissionState('rejected');
+      setSubmissionReason(res.reason || 'Rejected by server anti-cheat');
+    } else {
+      setSubmissionState('pending');
+    }
+  };
 
   const handleTimeUpdate = useCallback((time: number) => {
     setTimeLeft(time);
@@ -519,10 +587,25 @@ export default function App() {
               </span>
             </div>
 
-            {/* Launch Round Buttons */}
+            {/* Launch Round Buttons & Error Alert */}
             <div className="w-full max-w-sm flex flex-col gap-2 shrink-0 mb-1">
+              {startRoundError && (
+                <div className="w-full p-2.5 bg-red-950/90 border border-red-500 rounded-xl text-red-200 text-xs text-center flex flex-col gap-2 shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-shake">
+                  <span>{startRoundError}</span>
+                  <button
+                    onClick={() => {
+                      setStartRoundError(null);
+                      handleStartRound(false, true);
+                    }}
+                    className="py-1.5 px-3 bg-purple-900 border border-purple-400 text-purple-200 font-pixel text-[10px] rounded-lg hover:bg-purple-800 transition-all font-bold"
+                  >
+                    {profile.lang === 'ru' ? '🎮 ИГРАТЬ В ДЕМО-РЕЖИМЕ (БЕЗ РЕЙТИНГА)' : '🎮 PLAY DEMO MODE (UNRATED)'}
+                  </button>
+                </div>
+              )}
+
               <button
-                onClick={() => handleStartRound(false)}
+                onClick={() => handleStartRound(false, false)}
                 className="w-full py-3 sm:py-3.5 bg-[#00f5d4] text-[#0b071e] font-pixel text-xs sm:text-sm rounded-xl font-bold hover:bg-[#00f5d4]/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_#00f5d4]"
               >
                 <Play className="w-4 h-4 fill-current" />
@@ -530,11 +613,18 @@ export default function App() {
               </button>
 
               <button
-                onClick={() => handleStartRound(true)}
+                onClick={() => handleStartRound(true, false)}
                 className="w-full py-2.5 bg-[#210b42] border-2 border-[#ff007f] text-white font-pixel text-[9px] sm:text-[10px] rounded-xl hover:border-[#00f5d4] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(255,0,127,0.4)]"
               >
                 <Flame className="w-3.5 h-3.5 text-[#ff007f]" />
                 <span>{t.dailyChallenge}</span>
+              </button>
+
+              <button
+                onClick={() => handleStartRound(false, true)}
+                className="w-full py-2 bg-purple-950/80 border border-purple-500/50 text-purple-300 font-pixel text-[9px] sm:text-[10px] rounded-xl hover:bg-purple-900 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>{profile.lang === 'ru' ? '🎮 ДЕМО-РЕЖИМ (ТРЕНИРОВКА)' : '🎮 DEMO MODE (PRACTICE)'}</span>
               </button>
 
               <button
@@ -560,7 +650,11 @@ export default function App() {
           <FlightLogModal
             stats={roundStats}
             profile={profile}
-            onRestart={() => handleStartRound(false)}
+            isDemo={isDemoMode || !!roundStats.roundId?.startsWith('demo_')}
+            submissionState={submissionState}
+            submissionReason={submissionReason}
+            onRetrySubmission={handleRetrySubmission}
+            onRestart={() => handleStartRound(false, isDemoMode)}
             onOpenLeaderboard={() => openModal('leaderboard')}
           />
         )}
