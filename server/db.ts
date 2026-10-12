@@ -1,0 +1,112 @@
+import pg from 'pg';
+import { config } from './config.js';
+
+const { Pool } = pg;
+
+export let pool: pg.Pool | null = null;
+let isDbConnected = false;
+
+if (config.databaseUrl) {
+  try {
+    const poolMax = Number(process.env.DB_POOL_MAX || 25);
+    pool = new Pool({
+      connectionString: config.databaseUrl,
+      ssl: config.nodeEnv === 'production' ? { rejectUnauthorized: false } : false,
+      max: poolMax,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    });
+
+    pool.on('error', (err) => {
+      console.error('Unexpected PostgreSQL client error:', err);
+      isDbConnected = false;
+    });
+  } catch (err) {
+    console.warn('PostgreSQL pool initialization failed, falling back to mock DB:', err);
+    pool = null;
+  }
+} else {
+  console.info('No DATABASE_URL provided. Running in DB fallback mode.');
+}
+
+/**
+ * Execute SQL Query with error handling and fallback
+ */
+export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(
+  text: string,
+  params?: unknown[]
+): Promise<pg.QueryResult<T>> {
+  if (pool) {
+    try {
+      const res = await pool.query<T>(text, params);
+      isDbConnected = true;
+      return res;
+    } catch (err) {
+      console.error('Database query error:', err);
+      throw err;
+    }
+  }
+
+  // Fallback mock response for dev when DB is not connected
+  return {
+    rows: [],
+    rowCount: 0,
+    command: 'SELECT',
+    oid: 0,
+    fields: [],
+  };
+}
+
+/**
+ * Execute queries in a transaction
+ */
+export async function transaction<T>(
+  callback: (client: pg.PoolClient) => Promise<T>
+): Promise<T> {
+  if (!pool) {
+    throw new Error('Database pool is not initialized for transaction execution.');
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await callback(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Check DB health status
+ */
+export async function checkDbHealth(): Promise<{ status: 'ok' | 'degraded' | 'disabled'; message?: string }> {
+  if (!pool) {
+    return { status: 'disabled', message: 'No DATABASE_URL configured (Fallback mode)' };
+  }
+
+  try {
+    const res = await pool.query('SELECT 1 as alive');
+    if (res.rows[0]?.alive === 1) {
+      isDbConnected = true;
+      return { status: 'ok' };
+    }
+    return { status: 'degraded', message: 'Unexpected response from database' };
+  } catch (err) {
+    isDbConnected = false;
+    return { status: 'degraded', message: (err as Error).message };
+  }
+}
+
+export function isDbActive(): boolean {
+  return isDbConnected && pool !== null;
+}
+export async function closeDb(): Promise<void> {
+  if (pool) {
+    await pool.end();
+  }
+}

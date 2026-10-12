@@ -1,0 +1,447 @@
+import React, { useState } from 'react';
+import { X, Check, Lock, Sparkles, Rocket, Palette, Sparkle, Shield, Flame, Gift, Package } from 'lucide-react';
+import { PlayerProfile, CosmeticCategory, Rarity, CosmeticItem } from '../types/game';
+import { COSMETIC_ITEMS, COSMETIC_COLLECTIONS, CosmeticCollection } from '../shared/cosmetics';
+import { triggerHaptic } from '../utils/telegram';
+import { getTranslation } from '../utils/i18n';
+import { api } from '../utils/api';
+
+interface CosmeticsShopModalProps {
+  profile: PlayerProfile;
+  onUpdateProfile: (updatedProfile: PlayerProfile) => void;
+  onClose: () => void;
+}
+
+export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
+  profile,
+  onUpdateProfile,
+  onClose,
+}) => {
+  const t = getTranslation(profile.lang);
+  const [activeTab, setActiveTab] = useState<'shop' | 'collections'>('shop');
+  const [activeCategory, setActiveCategory] = useState<CosmeticCategory>('ship');
+  const [selectedPreviewItem, setSelectedPreviewItem] = useState<CosmeticItem>(() => {
+    return COSMETIC_ITEMS.find((c) => c.category === 'ship') || COSMETIC_ITEMS[0];
+  });
+  const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
+
+  const categories: Array<{ id: CosmeticCategory; labelEn: string; labelRu: string; icon: string }> = [
+    { id: 'ship', labelEn: 'SHIPS', labelRu: 'КОРАБЛИ', icon: '🚀' },
+    { id: 'trail', labelEn: 'TRAILS', labelRu: 'СЛЕДЫ', icon: '✨' },
+    { id: 'backdrop', labelEn: 'BACKDROPS', labelRu: 'ФОНЫ', icon: '🌌' },
+    { id: 'explosion', labelEn: 'EXPLOSIONS', labelRu: 'ВЗРЫВЫ', icon: '💥' },
+    { id: 'frame', labelEn: 'FRAMES', labelRu: 'РАМКИ', icon: '🖼️' },
+    { id: 'theme', labelEn: 'THEMES', labelRu: 'ТЕМЫ', icon: '🎨' },
+    { id: 'title', labelEn: 'TITLES', labelRu: 'ТИТУЛЫ', icon: '👑' },
+  ];
+
+  const getRarityBadge = (rarity: Rarity) => {
+    switch (rarity) {
+      case 'legendary':
+        return { label: 'LEGENDARY', color: 'text-[#ffb703]', bg: 'bg-[#ffb703]/15 border-[#ffb703] shadow-[0_0_10px_#ffb703]' };
+      case 'epic':
+        return { label: 'EPIC', color: 'text-[#ff007f]', bg: 'bg-[#ff007f]/15 border-[#ff007f] shadow-[0_0_10px_#ff007f]' };
+      case 'rare':
+        return { label: 'RARE', color: 'text-[#00f5d4]', bg: 'bg-[#00f5d4]/15 border-[#00f5d4] shadow-[0_0_8px_#00f5d4]' };
+      case 'common':
+      default:
+        return { label: 'COMMON', color: 'text-gray-300', bg: 'bg-gray-800/40 border-gray-500' };
+    }
+  };
+
+  const isEquipped = (item: CosmeticItem): boolean => {
+    switch (item.category) {
+      case 'ship':
+        return profile.selectedShip === item.id;
+      case 'trail':
+        return profile.selectedTrail === item.id;
+      case 'backdrop':
+        return profile.selectedBackdrop === item.id;
+      case 'explosion':
+        return profile.selectedExplosion === item.id;
+      case 'frame':
+        return profile.selectedFrame === item.id;
+      case 'theme':
+        return profile.selectedTheme === item.id;
+      case 'title':
+        return (profile as any).selectedTitle === item.id;
+      default:
+        return false;
+    }
+  };
+
+  const isUnlocked = (item: CosmeticItem): boolean => {
+    if (item.priceStardust === 0) return true;
+    return profile.unlockedCosmetics.includes(item.id);
+  };
+
+  const handleBuy = async (item: CosmeticItem) => {
+    if (profile.stardust < item.priceStardust) {
+      triggerHaptic('error');
+      return;
+    }
+
+    setLoadingItemId(item.id);
+    try {
+      const res = await api.buyItem(item.id);
+      triggerHaptic('success');
+      const updated: PlayerProfile = {
+        ...profile,
+        stardust: res.remainingStardust ?? (profile.stardust - item.priceStardust),
+        unlockedCosmetics: Array.from(new Set([...profile.unlockedCosmetics, item.id])),
+      };
+      onUpdateProfile(updated);
+    } catch (err) {
+      triggerHaptic('error');
+      console.warn('Shop purchase error:', err);
+    } finally {
+      setLoadingItemId(null);
+    }
+  };
+
+  const handleEquip = async (item: CosmeticItem) => {
+    setLoadingItemId(item.id);
+    try {
+      await api.equipItem(item.category, item.id);
+      triggerHaptic('selection');
+      const updated: PlayerProfile = { ...profile };
+
+      switch (item.category) {
+        case 'ship':
+          updated.selectedShip = item.id;
+          break;
+        case 'trail':
+          updated.selectedTrail = item.id;
+          break;
+        case 'backdrop':
+          updated.selectedBackdrop = item.id;
+          break;
+        case 'explosion':
+          updated.selectedExplosion = item.id;
+          break;
+        case 'frame':
+          updated.selectedFrame = item.id;
+          break;
+        case 'theme':
+          updated.selectedTheme = item.id;
+          break;
+        case 'title':
+          (updated as any).selectedTitle = item.id;
+          break;
+      }
+
+      onUpdateProfile(updated);
+    } catch (err) {
+      triggerHaptic('error');
+      console.warn('Equip error:', err);
+    } finally {
+      setLoadingItemId(null);
+    }
+  };
+
+  const handleBuyCollection = async (coll: CosmeticCollection) => {
+    const missingIds = coll.itemIds.filter((id) => !profile.unlockedCosmetics.includes(id));
+    if (missingIds.length === 0) {
+      triggerHaptic('selection');
+      return;
+    }
+    const missingItems = COSMETIC_ITEMS.filter((i) => missingIds.includes(i.id));
+    const totalPrice = missingItems.reduce((acc, i) => acc + i.priceStardust, 0);
+    const discountedPrice = Math.round(totalPrice * (1 - coll.discountPercent / 100));
+
+    if (profile.stardust < discountedPrice) {
+      triggerHaptic('error');
+      return;
+    }
+
+    setLoadingItemId(coll.id);
+    try {
+      for (const item of missingItems) {
+        if (item.priceStardust > 0 && !profile.unlockedCosmetics.includes(item.id)) {
+          await api.buyItem(item.id);
+        }
+      }
+      triggerHaptic('success');
+      const newUnlocked = Array.from(new Set([...profile.unlockedCosmetics, ...missingIds]));
+      const updated: PlayerProfile = {
+        ...profile,
+        stardust: Math.max(0, profile.stardust - discountedPrice),
+        unlockedCosmetics: newUnlocked,
+      };
+      onUpdateProfile(updated);
+    } catch (err) {
+      triggerHaptic('error');
+      console.warn('Collection purchase error:', err);
+    } finally {
+      setLoadingItemId(null);
+    }
+  };
+
+  const itemsInCategory = COSMETIC_ITEMS.filter((i) => i.category === activeCategory);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-mono-tech select-none">
+      <div className="relative w-full max-w-lg bg-[#120a2e] border-2 border-[#9d4edd] rounded-2xl p-3.5 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-2.5 sm:gap-3 text-white max-h-[94vh] sm:max-h-[92vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-[#9d4edd]/40 pb-2 sm:pb-2.5">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-[#00f5d4]" />
+            <h2 className="font-pixel text-[11px] sm:text-xs text-[#00f5d4] uppercase tracking-wider">
+              {t.hangarTitle} (Dust Shop & Pilot Market)
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-[#210b42] px-3 py-1 rounded-full border border-[#ffb703]/50 text-[#ffb703] shadow-[0_0_10px_rgba(255,183,3,0.3)]">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="font-pixel text-xs font-bold">{profile.stardust}</span>
+            </div>
+            <button onClick={onClose} className="p-1 text-gray-400 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Switcher: Individual Items vs Collections / Sets */}
+        <div className="flex gap-2 bg-[#0b071e] p-1 rounded-xl border border-[#9d4edd]/30 shrink-0">
+          <button
+            onClick={() => { triggerHaptic('selection'); setActiveTab('shop'); }}
+            className={`flex-1 py-1.5 rounded-lg font-pixel text-[10px] transition-all flex items-center justify-center gap-1.5 ${
+              activeTab === 'shop'
+                ? 'bg-[#9d4edd] text-white font-bold shadow-[0_0_10px_#9d4edd]'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <Sparkle className="w-3.5 h-3.5" /> Individual Catalog (65+)
+          </button>
+          <button
+            onClick={() => { triggerHaptic('selection'); setActiveTab('collections'); }}
+            className={`flex-1 py-1.5 rounded-lg font-pixel text-[10px] transition-all flex items-center justify-center gap-1.5 ${
+              activeTab === 'collections'
+                ? 'bg-[#ff007f] text-white font-bold shadow-[0_0_10px_#ff007f]'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <Package className="w-3.5 h-3.5" /> Collections & Bundles (-20%)
+          </button>
+        </div>
+
+        {activeTab === 'shop' ? (
+          <>
+            {/* 7 Category Tabs */}
+            <div className="grid grid-cols-7 gap-1 bg-[#0b071e] p-1 rounded-xl border border-[#9d4edd]/30 shrink-0 overflow-x-auto">
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    triggerHaptic('selection');
+                    setActiveCategory(cat.id);
+                    const first = COSMETIC_ITEMS.find((i) => i.category === cat.id);
+                    if (first) setSelectedPreviewItem(first);
+                  }}
+                  className={`py-1 sm:py-1.5 rounded-lg flex flex-col items-center justify-center gap-0.5 text-[8px] font-pixel transition-all ${
+                    activeCategory === cat.id
+                      ? 'bg-[#00f5d4] text-[#0b071e] font-bold shadow-[0_0_10px_#00f5d4]'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <span className="text-xs sm:text-sm">{cat.icon}</span>
+                  <span className="hidden sm:inline">
+                    {profile.lang === 'ru' ? cat.labelRu : cat.labelEn}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Fitting Room Interactive Live Preview Window */}
+            <div className="relative w-full h-24 sm:h-28 rounded-xl bg-[#0b071e] border-2 border-[#9d4edd]/50 flex items-center justify-center overflow-hidden p-2.5 sm:p-3 shadow-inner shrink-0">
+              <div
+                className="absolute inset-0 opacity-30 animate-pulse"
+                style={{
+                  background: `radial-gradient(circle, ${selectedPreviewItem.previewColor} 0%, transparent 75%)`,
+                }}
+              />
+
+              <div className="relative flex items-center gap-3 sm:gap-4 z-10 w-full justify-center">
+                <div
+                  className="w-13 h-13 sm:w-16 sm:h-16 rounded-xl border-2 flex items-center justify-center text-2xl sm:text-3xl shadow-[0_0_20px_rgba(255,255,255,0.3)] shrink-0 animate-bounce"
+                  style={{
+                    borderColor: selectedPreviewItem.previewColor,
+                    backgroundColor: `${selectedPreviewItem.previewColor}30`,
+                  }}
+                >
+                  {selectedPreviewItem.iconSymbol}
+                </div>
+
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-pixel text-xs sm:text-sm text-white truncate">
+                      {profile.lang === 'ru' ? selectedPreviewItem.nameRu : selectedPreviewItem.nameEn}
+                    </span>
+                  </div>
+                  <span className="text-[9px] sm:text-[10px] text-gray-300 max-w-[220px] mt-0.5 font-mono-tech leading-tight line-clamp-2">
+                    {profile.lang === 'ru' ? selectedPreviewItem.descRu : selectedPreviewItem.descEn}
+                  </span>
+
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <span
+                      className={`text-[8px] font-pixel px-2 py-0.5 rounded border uppercase ${
+                        getRarityBadge(selectedPreviewItem.rarity).bg
+                      } ${getRarityBadge(selectedPreviewItem.rarity).color}`}
+                    >
+                      {selectedPreviewItem.rarity}
+                    </span>
+                    <span className="text-[8px] text-[#00f5d4] font-pixel animate-pulse">
+                      ⚡ Fitting Room Preview Active
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Item Grid */}
+            <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-2 pr-1 max-h-[34vh]">
+              {itemsInCategory.map((item) => {
+                const unlocked = isUnlocked(item);
+                const equipped = isEquipped(item);
+                const rarityInfo = getRarityBadge(item.rarity);
+                const name = profile.lang === 'ru' ? item.nameRu : item.nameEn;
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      triggerHaptic('selection');
+                      setSelectedPreviewItem(item);
+                    }}
+                    className={`p-2.5 rounded-xl border flex flex-col justify-between gap-2 cursor-pointer transition-all ${
+                      selectedPreviewItem.id === item.id
+                        ? 'border-[#00f5d4] bg-[#00f5d4]/10 shadow-[0_0_12px_rgba(0,245,212,0.3)]'
+                        : 'border-[#9d4edd]/25 bg-[#0b071e] hover:border-[#9d4edd]/60'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg p-1.5 rounded-lg bg-[#210b42] border border-[#9d4edd]/30">
+                          {item.iconSymbol}
+                        </span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-pixel text-[10px] text-white truncate max-w-[120px]">
+                            {name}
+                          </span>
+                          <span className={`text-[7px] font-pixel ${rarityInfo.color}`}>
+                            {item.rarity.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-[#9d4edd]/15">
+                      {equipped ? (
+                        <span className="w-full py-1 bg-[#00f5d4] text-[#0b071e] font-pixel text-[9px] font-bold rounded flex items-center justify-center gap-1 shadow-[0_0_8px_#00f5d4]">
+                          <Check className="w-3 h-3" /> {t.equippedBadge}
+                        </span>
+                      ) : unlocked ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEquip(item);
+                          }}
+                          className="w-full py-1 bg-[#210b42] border border-[#9d4edd] hover:border-[#00f5d4] text-white font-pixel text-[9px] rounded transition-colors"
+                        >
+                          {t.equipBtn}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBuy(item);
+                          }}
+                          className={`w-full py-1 text-white font-pixel text-[9px] font-bold rounded flex items-center justify-center gap-1 ${
+                            profile.stardust >= item.priceStardust
+                              ? 'bg-[#ff007f] hover:bg-[#ff007f]/90 shadow-[0_0_8px_#ff007f]'
+                              : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                          }`}
+                        >
+                          <Lock className="w-2.5 h-2.5" />
+                          <span>{item.priceStardust} Dust</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          /* Collections & Bundles View */
+          <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1 max-h-[46vh]">
+            <p className="text-[10px] text-gray-300 font-mono-tech px-1">
+              Complete set bundles with a <span className="text-[#00f5d4] font-bold">15%–20% discount</span>. All unlocked items automatically sync!
+            </p>
+
+            {COSMETIC_COLLECTIONS.map((coll) => {
+              const missingIds = coll.itemIds.filter((id) => !profile.unlockedCosmetics.includes(id));
+              const missingItems = COSMETIC_ITEMS.filter((i) => missingIds.includes(i.id));
+              const originalPrice = missingItems.reduce((acc, i) => acc + i.priceStardust, 0);
+              const discountedPrice = Math.round(originalPrice * (1 - coll.discountPercent / 100));
+              const isFullyUnlocked = missingIds.length === 0;
+
+              return (
+                <div
+                  key={coll.id}
+                  className="p-3.5 rounded-xl border border-[#9d4edd]/40 bg-[#0b071e] flex flex-col gap-2.5 shadow-md"
+                  style={{ borderColor: coll.previewColor }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🎁</span>
+                      <div>
+                        <h3 className="font-pixel text-xs text-white">
+                          {profile.lang === 'ru' ? coll.nameRu : coll.nameEn}
+                        </h3>
+                        <span className="text-[9px] text-[#ffb703] font-pixel">
+                          Bundle Discount: -{coll.discountPercent}%
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-pixel px-2 py-1 bg-[#210b42] rounded-lg border border-[#9d4edd]/40">
+                      {coll.itemIds.length} Items Set
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-[#9d4edd]/20">
+                    {isFullyUnlocked ? (
+                      <span className="w-full py-1.5 bg-[#00f5d4]/20 border border-[#00f5d4] text-[#00f5d4] font-pixel text-[10px] font-bold rounded flex items-center justify-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> Collection Fully Owned
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleBuyCollection(coll)}
+                        disabled={profile.stardust < discountedPrice}
+                        className={`w-full py-1.5 font-pixel text-[10px] font-bold rounded flex items-center justify-center gap-1 ${
+                          profile.stardust >= discountedPrice
+                            ? 'bg-[#ff007f] hover:bg-[#ff007f]/90 text-white shadow-[0_0_10px_#ff007f]'
+                            : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Buy Missing ({discountedPrice} Stardust)</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Fair Play Footer Banner */}
+        <div className="p-2 rounded-lg bg-[#0b071e] border border-[#9d4edd]/20 flex items-center justify-center gap-2 text-[10px] text-gray-400 text-center font-mono-tech shrink-0">
+          <Shield className="w-3.5 h-3.5 text-[#00f5d4]" />
+          <span>Cosmetics only. Zero impact on score or rankings!</span>
+        </div>
+      </div>
+    </div>
+  );
+};

@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .font-pixel {
+    font-family: 'Press Start 2P', monospace;
+  }
+  .font-mono-tech {
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .font-heading {
+    font-family: 'Chakra Petch', sans-serif;
+  }
+}
+
+/* Custom CRT scanline & flicker animation */
+.crt-overlay {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.35) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.03),
+    rgba(0, 255, 0, 0.01),
+    rgba(0, 0, 255, 0.03)
+  );
+  background-size: 100% 4px, 6px 100%;
+  pointer-events: none;
+}
+
+@keyframes flicker {
+  0% { opacity: 0.98; }
+  50% { opacity: 1; }
+  100% { opacity: 0.97; }
+}
+
+.crt-flicker {
+  animation: flicker 0.15s infinite;
+}
+
+.text-glow-cyan {
+  text-shadow: 0 0 8px rgba(0, 245, 212, 0.7), 0 0 20px rgba(0, 245, 212, 0.4);
+}
+
+.text-glow-magenta {
+  text-shadow: 0 0 8px rgba(255, 0, 127, 0.7), 0 0 20px rgba(255, 0, 127, 0.4);
+}
+
+.text-glow-amber {
+  text-shadow: 0 0 8px rgba(255, 183, 3, 0.8), 0 0 20px rgba(255, 183, 3, 0.5);
+}
+
+.border-glow-cyan {
+  box-shadow: 0 0 15px rgba(0, 245, 212, 0.4), inset 0 0 15px rgba(0, 245, 212, 0.2);
+}
+
+.border-glow-magenta {
+  box-shadow: 0 0 15px rgba(255, 0, 127, 0.4), inset 0 0 15px rgba(255, 0, 127, 0.2);
+}
+
+/* Pixel rendering crispness */
+canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Dynamic viewport height helper for mobile Telegram browsers */
+:root {
+  --app-height: 100vh;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-height: 100dvh;
+  }
+}
+
+.h-app-screen {
+  height: var(--app-height);
+  max-height: var(--app-height);
+}
+
+/* Custom scrollbars for retro lists */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #0b071e;
+}
+::-webkit-scrollbar-thumb {
+  background: #9d4edd;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00f5d4;
+}
+
+

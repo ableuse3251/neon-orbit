@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Neon Orbit — Retro Cosmic Tap</title>
+    <meta name="description" content="Retro 80s synthwave arcade clicker Mini App for Telegram. High score, combo multipliers, cosmetic skins, and daily challenges." />
+    <meta name="theme-color" content="#0b071e" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Neon Orbit" />
+    
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- OpenGraph & Social Cards -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Neon Orbit — Retro Cosmic Tap" />
+    <meta property="og:description" content="Retro 80s synthwave arcade clicker Mini App for Telegram. High score, combo multipliers, cosmetic skins, and daily challenges." />
+    <meta property="og:site_name" content="Neon Orbit" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Neon Orbit — Retro Cosmic Tap" />
+    <meta name="twitter:description" content="Retro 80s synthwave arcade clicker Mini App for Telegram. High score, combo multipliers, cosmetic skins, and daily challenges." />
+
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Neon Orbit",
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "All",
+      "description": "Retro 80s synthwave arcade clicker Mini App for Telegram featuring pilot levels, cosmic stardust, achievements, daily streak rewards, and Telegram Stars cosmetic shop.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Retro Fonts (Preload + display: swap to eliminate render-blocking) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Press+Start+2P&family=Share+Tech+Mono&display=swap" />
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Press+Start+2P&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  </head>
+  <body class="bg-[#0b071e] text-white antialiased overflow-hidden select-none m-0 p-0 w-full h-full">
+    <div id="root" class="w-full h-full"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
