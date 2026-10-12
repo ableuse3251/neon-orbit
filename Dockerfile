@@ -1,5 +1,5 @@
 # Stage 1: Build Frontend & Prepare Server Dependencies
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production Execution Environment
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
@@ -28,7 +28,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/server ./server
-COPY --from=builder /app/src/shared ./src/shared
+COPY --from=builder /app/src ./src
 COPY --from=builder /app/server.ts ./server.ts
 COPY --from=builder /app/bot.ts ./bot.ts
 COPY --from=builder /app/vite.config.ts ./vite.config.ts
@@ -43,6 +43,6 @@ EXPOSE 3000
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health/liveness || exit 1
 
 CMD ["npm", "run", "start"]
