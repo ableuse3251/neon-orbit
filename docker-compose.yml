@@ -27,6 +27,12 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health/liveness || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   # Dedicated Telegram Bot Handler Process

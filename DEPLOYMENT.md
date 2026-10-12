@@ -1,161 +1,289 @@
-# 🚀 Neon Orbit Deployment & BotFather Guide
+# 🚀 Neon Orbit Production Deployment Guide (Option A: Vercel Frontend + Persistent Express Docker Backend)
 
-Complete deployment instructions for Neon Orbit (Full-Stack Node.js + Express + React + PostgreSQL + Redis + Telegram Bot Mini App).
-
----
-
-## 📋 1. Prerequisites & Environment Variables
-
-Make sure the following environment variables are set in production:
-
-| Variable | Description | Example / Default |
-| :--- | :--- | :--- |
-| `NODE_ENV` | Environment mode | `production` |
-| `PORT` | Server HTTP port | `3000` |
-| `APP_URL` | Public HTTPS domain of your backend deployment | `https://neon-orbit.up.railway.app` |
-| `VITE_API_URL` | (Frontend Vercel) URL of persistent Express backend | `https://neon-orbit.up.railway.app` |
-| `TELEGRAM_BOT_TOKEN` | Bot API Token from @BotFather | `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ` |
-| `BOT_USERNAME` | Telegram Bot username (without `@`) | `NeonOrbitBot` |
-| `ADMIN_TELEGRAM_IDS` | Comma-separated admin Telegram IDs | `12345678,98765432` |
-| `DATABASE_URL` | PostgreSQL connection string | `postgres://user:pass@host:5432/dbname` |
-| `REDIS_URL` | Redis connection URL | `redis://default:pass@host:6379` |
-| `WEBHOOK_SECRET` | Secret token for Telegram Webhook security | `random_secret_hash_key_123` |
-| `JWT_SECRET` | Secret key for auth token signing | `random_jwt_secret_456` |
+This guide provides deploy-ready instructions for deploying **Neon Orbit** using **Option A**:
+- **Frontend**: Vite/React SPA hosted on **Vercel** CDN.
+- **Backend**: Express Node.js API, Telegram Bot, and Background Notification Worker hosted on a **Persistent Node/Docker Host** (Railway, Fly.io, Cloud Run, Render, or Dedicated VPS).
 
 ---
 
-## 🛠️ 2. BotFather Setup (Telegram Mini App)
+## 🛑 1. Why Express / Bot / Workers CANNOT Run in Vercel Serverless Functions
 
-1. Open Telegram and search for **[@BotFather](https://t.me/BotFather)**.
-2. Send `/newbot` or select your existing bot using `/mybots`.
-3. **Configure Mini App Button:**
-   - Select `/setmenubutton` -> Choose your bot -> Enter URL: `https://your-app-domain.com`.
-4. **Configure WebApp Settings:**
-   - Select `Bot Settings` -> `Menu Button` -> `Configure menu button`.
-   - Set Title: `🎮 Play Neon Orbit`
-   - Set WebApp URL: `https://your-app-domain.com`
-5. **Enable Inline Mode (For Score Card Sharing):**
-   - Select `/setinline` -> Choose your bot -> Set placeholder text: `Share high score...`
-6. **Configure Commands List:**
-   - Send `/setcommands` -> Choose your bot and paste the following list:
-     ```text
-     start - Launch Neon Orbit Mini App
-     top - View chat & global leaderboards
-     help - View game rules & pilot guide
-     paysupport - Payment support for Telegram Stars
-     privacy - Privacy policy & data management
-     delete_me - Permanently delete personal account data
-     ```
-7. **Enable Telegram Stars Payments:**
-   - Send `/mybots` -> Select Bot -> `Payments` -> Enable **Telegram Stars (XTR)**.
+Attempting to run `server.ts` or `bot.ts` inside Vercel Serverless Functions results in HTTP `500 FUNCTION_INVOCATION_FAILED` errors due to fundamental architectural mismatches:
+
+1. **`process.listen()` Conflict**:
+   - Vercel Serverless Functions are ephemeral AWS Lambda micro-containers invoked per incoming request.
+   - Vercel manages request routing externally at the edge. Calling `app.listen(PORT)` inside a serverless handler attempts to bind a TCP port, causing permission denied or socket hangup errors.
+
+2. **Telegram Long Polling (`bot.start()`) Failure**:
+   - Telegram long polling requires a continuous, open TCP connection to `api.telegram.org/bot<TOKEN>/getUpdates`.
+   - Vercel Serverless Functions freeze or terminate execution as soon as the HTTP response closes. Any active polling loop is frozen or severed, resulting in dropped updates, 409 Conflict errors, or duplicate polling instances.
+
+3. **Background Worker (`setInterval`) Destruction**:
+   - Background workers (e.g. `processNotificationQueue()` running on a 30-second loop) rely on persistent Node event loops.
+   - Serverless instances scale to zero when idle. In-memory timers or background loops freeze, causing scheduled notifications and database queue processing to stall indefinitely.
+
+4. **Database & Redis Connection Exhaustion**:
+   - Serverless functions create new database connection pools on cold starts. Under high traffic, hundreds of concurrent serverless lambdas will instantly exhaust PostgreSQL's `max_connections` (100–200 limit) without persistent connection pooling like PgBouncer.
 
 ---
 
-## 🚂 3. Deploying to Railway.app
+## 🏗️ 2. Option A Architecture & Service Topology
 
-1. Fork or push this repository to GitHub.
-2. Log into [Railway.app](https://railway.app) and create a **New Project**.
-3. **Add PostgreSQL & Redis Databases:**
-   - Click **+ New** -> Database -> Add **PostgreSQL**.
-   - Click **+ New** -> Database -> Add **Redis**.
-4. **Deploy GitHub Repository:**
-   - Click **+ New** -> **GitHub Repo** -> Select `neon-orbit`.
-5. **Configure Variables in Railway:**
-   - Go to your app service -> **Variables**.
-   - Add `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`
-   - Add `REDIS_URL` = `${{Redis.REDIS_URL}}`
-   - Add `TELEGRAM_BOT_TOKEN`, `BOT_USERNAME`, `ADMIN_TELEGRAM_IDS`, `APP_URL`, `WEBHOOK_SECRET`.
-6. Railway automatically detects `Dockerfile` and deploys the unified server and bot!
+The system is decomposed into distinct, isolated services communicating over secure internal networks and HTTPS:
+
+```
+                  ┌─────────────────────────────────────┐
+                  │          Vercel Edge CDN            │
+                  │   Vite/React SPA (Neon Orbit Web)   │
+                  └──────────────────┬──────────────────┘
+                                     │ HTTPS
+                                     ▼
+                  ┌─────────────────────────────────────┐
+                  │    HTTPS Proxy / Load Balancer      │
+                  │       (Caddy / Nginx / Railway)     │
+                  └──────────────────┬──────────────────┘
+                                     │
+         ┌───────────────────────────┼───────────────────────────┐
+         │ (Internal Docker Network / Private VPC - Isolated)   │
+         ▼                           ▼                           ▼
+┌──────────────────┐       ┌──────────────────┐       ┌──────────────────┐
+│     web_api      │       │   bot_handler    │       │notification_worker│
+│ (APP_ROLE=web-api)       │ (APP_ROLE=bot)   │       │(APP_ROLE=worker) │
+│ Express REST API │       │ Telegram Polling │       │ Queue Processor  │
+└────────┬─────────┘       └────────┬─────────┘       └────────┬─────────┘
+         │                          │                          │
+         └──────────────────────────┼──────────────────────────┘
+                                    │
+                                    ▼
+                    ┌──────────────────────────────┐
+                    │    PgBouncer Pooler (6432)   │
+                    └───────────────┬──────────────┘
+                                    │
+                         ┌──────────┴──────────┐
+                         ▼                     ▼
+               ┌──────────────────┐  ┌──────────────────┐
+               │ PostgreSQL 16 DB │  │   Redis 7 Cache  │
+               │ (Private 5432)   │  │  (Private 6379)  │
+               └──────────────────┘  └──────────────────┘
+```
+
+### Application Roles (`APP_ROLE` Environment Variable)
+
+1. **`web_api` (`APP_ROLE=web-api`)**:
+   - Serves all REST endpoints (`/api/*`), CORS middleware, rate limiting, and HMAC authentication.
+   - Exposes `/api/health/liveness` and `/api/health/readiness`.
+   - Skips Telegram bot long-polling and background worker intervals.
+
+2. **`bot_handler` (`APP_ROLE=telegram-bot`)**:
+   - Executes grammY Telegram Bot long-polling (`bot.start()`).
+   - Processes `/start`, `/top`, `/help`, `/season`, `/delete_me` commands and Telegram Stars pre-checkout validation (`pre_checkout_query`).
+
+3. **`notification_worker` (`APP_ROLE=worker`)**:
+   - Executes `processNotificationQueue()` every 30 seconds.
+   - Claims pending notifications atomically using PostgreSQL `FOR UPDATE SKIP LOCKED`.
+   - Respects quiet hours, retry exponential backoff, and Telegram rate limits (~25 msg/sec).
+
+4. **Monolithic Mode (`APP_ROLE=all`)**:
+   - Runs Web API, Telegram Bot, and Notification Worker inside a single process (ideal for local development or lightweight single-container hosts).
 
 ---
 
-## 🛸 4. Deploying to Fly.io
+## 🔒 3. Network, Port & Security Settings
 
-1. Install Fly CLI: `curl -L https://fly.io/install.sh | sh`
-2. Launch Fly app: `fly launch`
-3. Provision Postgres and Redis on Fly:
-   - `fly postgres create`
-   - `fly redis create`
-4. Set secret variables:
-   - `fly secrets set TELEGRAM_BOT_TOKEN="your_token" APP_URL="https://your-app.fly.dev" ADMIN_TELEGRAM_IDS="123456"`
-5. Deploy: `fly deploy`
+### Port Allocations (Internal Only)
+- **Web API**: Port `3000` (configurable via `PORT`).
+- **PgBouncer**: Port `6432` (Internal Docker Network).
+- **PostgreSQL**: Port `5432` (Internal Docker Network).
+- **Redis**: Port `6379` (Internal Docker Network).
+
+### Security Rules
+- ⚠️ **CRITICAL**: **Do NOT expose PostgreSQL (`5432`) or Redis (`6379`) host ports to `0.0.0.0` on the public internet.** Bind database services exclusively to `127.0.0.1` or internal Docker overlay networks (`docker-compose.yml` internal service name).
+- **HTTPS Termination**: Public access MUST route through an SSL/TLS terminating reverse proxy (Cloudflare, Caddy, Railway Ingress, or Nginx) providing valid TLS certificates.
 
 ---
 
-## 🐳 5. Running via Docker Compose Locally
+## 🛠️ 4. Deploying Frontend to Vercel
+
+1. Log into [Vercel Dashboard](https://vercel.com) and click **Add New Project**.
+2. Select your GitHub repository (`neon-orbit`).
+3. Set Framework Preset: **Vite**.
+4. Set Build Command: `npm run build`
+5. Set Output Directory: `dist`
+6. **Configure Environment Variables in Vercel Dashboard**:
+   - `VITE_API_BASE_URL`: The public HTTPS URL of your persistent Express backend (e.g. `https://api.neonorbit.com` or `https://neon-orbit-api.up.railway.app`).
+7. Deploy. Vercel automatically builds and distributes the static bundle across its global Edge Network.
+
+---
+
+## 🐳 5. Deploying Backend with Docker / Docker Compose
+
+### Prerequisites & Secrets Management
+All secrets MUST be supplied via host environment variables or dashboard secret managers (Railway, Fly.io, AWS Secrets Manager, GitHub Secrets). **Never commit production secrets to Git.**
+
+### Step 1: Prepare Production `.env`
+Create a `.env` file on your server (or configure environment variables in your deployment cloud provider dashboard) using `.env.example` as a template:
 
 ```bash
-# Clone and configure .env
-cp .env.example .env
+# Frontend Public URL
+APP_URL="https://neon-orbit.vercel.app"
 
-# Build and start all services (App + Postgres + Redis)
+# Server Settings
+NODE_ENV="production"
+PORT="3000"
+
+# CORS Allowlist
+CORS_ORIGIN="https://neon-orbit.vercel.app,https://web.telegram.org"
+
+# Telegram Bot Credentials
+TELEGRAM_BOT_TOKEN="YOUR_BOT_TOKEN_FROM_BOTFATHER"
+BOT_USERNAME="NeonOrbitBot"
+ADMIN_TELEGRAM_IDS="123456789,987654321"
+
+# Production Secrets (Generated random 32+ char hashes)
+WEBHOOK_SECRET="generate_random_hash_secret_here_32chars"
+JWT_SECRET="generate_random_jwt_hmac_secret_here_32chars"
+METRICS_SECRET="generate_random_metrics_bearer_token"
+POSTGRES_PASSWORD="generate_secure_db_password_here"
+
+# Database Connection (Routed through PgBouncer connection pooler)
+DATABASE_URL="postgres://neon_user:${POSTGRES_PASSWORD}@pgbouncer:6432/neon_orbit"
+
+# Redis Cache URL
+REDIS_URL="redis://redis:6379"
+```
+
+### Step 2: Start Containers with Docker Compose
+```bash
+# Build and start all services in detached mode
 docker-compose up --build -d
 
-# Check logs
-docker-compose logs -f app
+# Verify running container status
+docker-compose ps
 ```
 
 ---
 
-## 💾 6. Database Backups & Disaster Recovery
+## 🩺 6. Health Probes & Monitoring
 
-An automated snapshot script is located at `server/scripts/backup.sh`:
+The Express backend includes built-in liveness and readiness health endpoints:
 
+### Liveness Probe (`GET /api/health/liveness`)
+- **URL**: `http://localhost:3000/api/health/liveness`
+- **Purpose**: Verifies that the Express HTTP server process is running and accepting sockets.
+- **Expected Status**: `200 OK`
+- **Response**:
+  ```json
+  {
+    "status": "ok",
+    "timestamp": "2026-10-12T10:00:00.000Z"
+  }
+  ```
+
+### Readiness Probe (`GET /api/health/readiness`)
+- **URL**: `http://localhost:3000/api/health/readiness`
+- **Purpose**: Verifies active database connection pool health and Redis cache responsiveness.
+- **Expected Status**: `200 OK` (or `503 Service Unavailable` if database is down).
+- **Response**:
+  ```json
+  {
+    "status": "ok",
+    "timestamp": "2026-10-12T10:00:00.000Z",
+    "services": {
+      "database": { "status": "ok", "latencyMs": 2 },
+      "redis": { "status": "ok", "latencyMs": 1 }
+    }
+  }
+  ```
+
+---
+
+## 🧪 7. Smoke Testing Verification Commands
+
+After deploying, run the following smoke tests against your persistent Express backend API:
+
+### Test 1: Liveness Check
 ```bash
-# Run manual compressed database backup
-DATABASE_URL="postgresql://user:pass@host:5432/dbname" ./server/scripts/backup.sh
-
-# Restore from a backup snapshot (e.g., in a test environment):
-# 1. Ensure the database is clean or you are restoring to a fresh instance
-# 2. Run the following command:
-gunzip -c backups/neon_orbit_YYYYMMDD_HHMMSS.sql.gz | psql "${DATABASE_URL}"
-
-# 3. Verification:
-# After restoration, verify connectivity and table counts:
-psql "${DATABASE_URL}" -c "\dt"
-psql "${DATABASE_URL}" -c "SELECT COUNT(*) FROM users;"
+curl -i -X GET https://your-backend-api.com/api/health/liveness
+# Expected: HTTP/1.1 200 OK
 ```
 
-For production (Railway / Fly.io / Cloud SQL), automate nightly backups using a cron job or Railway scheduled tasks with 7-day retention.
-
----
-
-## ⚡ 7. Load Testing for 1,000 Concurrent Players (k6)
-
-A complete scenario simulating 1,000 active pilots running full game cycles is provided in `load-test.js`.
-
-### How to Run:
+### Test 2: Readiness Check (DB & Redis Health)
 ```bash
-# 1. Install k6 (macOS: brew install k6, Linux: snap install k6)
-# Or run with Docker:
-docker run --rm -i -e TARGET_URL="http://host.docker.internal:3000" grafana/k6 run - <load-test.js
-
-# 2. Run directly against local or staging server:
-TARGET_URL="https://your-staging-domain.com" k6 run load-test.js
+curl -i -X GET https://your-backend-api.com/api/health/readiness
+# Expected: HTTP/1.1 200 OK
 ```
 
-### Identified Bottlenecks & Architectural Mitigations:
-1. **PostgreSQL Connection Starvation:**
-   - *Risk:* 1,000 players submitting rounds simultaneously will exhaust standard `pg.Pool` (10 connections).
-   - *Mitigation:* We made `DB_POOL_MAX` configurable (default 25–50) and recommend PgBouncer (session/transaction pooling) in production.
-2. **Leaderboard Heavy Queries:**
-   - *Risk:* `SELECT ... ORDER BY score DESC` on a large table with 1,000 concurrent requests creates severe disk I/O and query lag.
-   - *Mitigation:* Handled via **Redis Sorted Sets** (`ZREVRANGE`, `ZREVRANK`). Leaderboard reads hit Redis cache in < 1ms; Postgres is only queried on cache misses.
-3. **Crypto HMAC Overhead:**
-   - *Risk:* Cryptographic SHA-256 HMAC verification of `initData` on every request consumes CPU cycles.
-   - *Mitigation:* Validated sessions are cached in memory/Redis so repeat queries from the same user bypass repetitive HMAC hashing.
-4. **Rate Limiting Protection:**
-   - *Risk:* Burst attacks or autoclickers flooding round submissions.
-   - *Mitigation:* Dedicated `roundSubmitLimiter` (max 30 submissions per 5 min) and `starsInvoiceLimiter` (max 30 per 15 min).
+### Test 3: Public Configuration Endpoint
+```bash
+curl -i -X GET https://your-backend-api.com/api/config
+# Expected: HTTP/1.1 200 OK with botUsername, gameVersion, and features
+```
+
+### Test 4: Leaderboard Endpoint
+```bash
+curl -i -X GET "https://your-backend-api.com/api/leaderboard?scope=global"
+# Expected: HTTP/1.1 200 OK with global leaderboard entries
+```
+
+### Test 5: Session Endpoint with Telegram Authorization
+```bash
+curl -i -X GET https://your-backend-api.com/api/auth/session \
+  -H "Authorization: tma query_id=STAGING_TEST_QUERY_ID&user=%7B%22id%22%3A12345678%2C%22first_name%22%3A%22Test%22%2C%22username%22%3A%22tester%22%7D&auth_date=1700000000&hash=mock_hash"
+# Expected: HTTP/1.1 200 OK (or 401 Unauthorized if invalid HMAC hash in production mode)
+```
+
+### Test 6: Round Start Endpoint
+```bash
+curl -i -X POST https://your-backend-api.com/api/round/start \
+  -H "Content-Type: application/json" \
+  -H "Authorization: tma query_id=STAGING_TEST_QUERY_ID..." \
+  -d '{"mode":"classic"}'
+# Expected: HTTP/1.1 200 OK with roundId, seed, and target parameters
+```
 
 ---
 
-## ✅ 8. Pre-Launch Operations & Security Checklist
+## ✅ 8. Pre-Launch Operations Checklist
 
-- [x] **Telegram Stars:** Verified `createInvoiceLink` uses authoritative server prices (no client tampering possible).
-- [x] **Anti-Cheat:** Server-side `recalculateRound` validates target seed, tap frequency (<= 18 cps), tap rhythm stddev, and round duration (38–55s).
-- [x] **Transactions:** Critical operations (`claimDaily`, `buyCosmetic`, `claimReferralTier`, `fulfillPayment`) execute inside `BEGIN ... FOR UPDATE ... COMMIT` transactions with row locking.
-- [x] **Webhook Security:** Webhook secret token is verified by grammY using `WEBHOOK_SECRET` on `/telegram/webhook`.
-- [x] **Input Validation:** All endpoints validate schemas via `zod` before processing.
-- [x] **Privacy & GDPR:** `/delete_me` in bot and `/api/user/delete-account` in app cascade-delete user records and clean Redis cache.
+- [x] **Vercel Frontend**: `VITE_API_BASE_URL` points to persistent HTTPS backend API domain without trailing slashes.
+- [x] **Express API**: `APP_ROLE=web-api` instance is running and listening on port 3000.
+- [x] **Telegram Bot**: `APP_ROLE=telegram-bot` instance is active in long-polling mode (or webhook mode).
+- [x] **Notification Worker**: `APP_ROLE=worker` instance is active and processing queue jobs every 30s.
+- [x] **Database Isolation**: PostgreSQL (port 5432) and Redis (port 6379) ports are strictly bound to internal docker networks.
+- [x] **Connection Pooling**: PgBouncer is configured in transaction pooling mode on port 6432.
+- [x] **CORS Allowlist**: `CORS_ORIGIN` contains your exact Vercel frontend URL and Telegram WebView domains (`https://web.telegram.org`).
+- [x] **Bot Menu Button**: Linked to your frontend Vercel URL via BotFather (`/setmenubutton`).
+- [x] **GDPR Compliance**: `/delete_me` command in bot and `/api/user/delete-account` endpoint wipe user data and clear Redis cache.
 
+---
+
+## 🔄 9. Emergency Rollback Procedures
+
+### Frontend Rollback (Vercel)
+1. Go to [Vercel Dashboard](https://vercel.com) -> **Neon Orbit Project** -> **Deployments**.
+2. Locate the previous stable deployment commit.
+3. Click the **...** menu next to the stable deployment and select **Promote to Production**.
+4. Traffic routes instantly (< 5 seconds) to the previous static build.
+
+### Backend Rollback (Docker / Express Host)
+1. Identify the previous stable Git commit SHA or Docker image tag:
+   ```bash
+   git log -n 5 --oneline
+   ```
+2. Revert code to the previous stable release:
+   ```bash
+   git checkout <PREVIOUS_STABLE_COMMIT_SHA>
+   ```
+3. Rebuild and restart backend Docker services:
+   ```bash
+   docker-compose down
+   docker-compose up --build -d
+   ```
+4. Verify backend health probes:
+   ```bash
+   curl -i http://localhost:3000/api/health/readiness
+   ```
+5. Check service logs for any migration or connection issues:
+   ```bash
+   docker-compose logs -f web_api
+   ```
