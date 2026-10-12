@@ -110,6 +110,15 @@ export function verifyTelegramInitData(initDataStr: string): { isValid: boolean;
 }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // Reject initData supplied in query parameters to prevent credential leakage in URL logs/proxies
+  if (req.query.initData || req.query.init_data || req.query.tgWebAppData) {
+    res.status(400).json({
+      error: 'Bad Request',
+      message: 'Passing Telegram initData in query parameters is forbidden. Pass credentials via Authorization header.',
+    });
+    return;
+  }
+
   let initDataHeader = req.headers['authorization'] || (req.headers['x-init-data'] as string) || '';
 
   if (typeof initDataHeader === 'string') {

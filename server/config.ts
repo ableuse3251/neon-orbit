@@ -9,10 +9,18 @@ const metricsSecret = process.env.METRICS_SECRET || 'default_metrics_secret';
 const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
 const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
 
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 export function validateProductionConfig(cfg: Partial<typeof config>) {
   if (cfg.nodeEnv === 'production') {
     if (cfg.devAuthBypass) {
       throw new Error('CRITICAL CONFIGURATION ERROR: DEV_AUTH_BYPASS is strictly forbidden in production.');
+    }
+    if (cfg.dbSslRejectUnauthorized === false) {
+      throw new Error('CRITICAL CONFIGURATION ERROR: Disabling SSL certificate validation (DB_SSL_REJECT_UNAUTHORIZED=false) is forbidden in production.');
     }
     if (!cfg.jwtSecret || cfg.jwtSecret === 'default_jwt_secret_change_me') {
       throw new Error('CRITICAL CONFIGURATION ERROR: Default or empty JWT_SECRET is forbidden in production.');
@@ -43,6 +51,7 @@ export const config = {
   devAuthBypass: nodeEnv === 'production' ? false : (process.env.DEV_AUTH_BYPASS === 'true'),
   mockModeAllowed: nodeEnv === 'production' ? false : (process.env.ENABLE_MOCK_GAME === 'true' || nodeEnv !== 'production'),
   appUrl: process.env.APP_URL || '',
+  allowedOrigins,
   adminTelegramIds: (process.env.ADMIN_TELEGRAM_IDS || '')
     .split(',')
     .map((id) => id.trim())

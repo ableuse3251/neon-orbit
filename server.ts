@@ -47,20 +47,30 @@ app.use(
   })
 );
 
-// 2. Strict CORS policy
+// 2. Strict CORS policy with exact allowed origins
 app.use(
   cors({
     origin: (origin, callback) => {
+      const configuredOrigins = config.allowedOrigins || [];
       const allowedOrigins = [
         config.appUrl,
+        ...configuredOrigins,
         'https://telegram.org',
         'https://web.telegram.org',
         'https://webk.telegram.org',
         'https://webz.telegram.org',
       ].filter(Boolean) as string[];
-      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.telegram.org') || origin.endsWith('.vercel.app')) {
+
+      // Non-browser or same-origin server-to-server requests
+      if (!origin) {
         return callback(null, true);
       }
+
+      // Exact match check
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
       return callback(new Error('CORS policy error: Origin not allowed.'));
     },
     credentials: true,

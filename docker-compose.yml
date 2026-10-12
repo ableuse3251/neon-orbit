@@ -8,20 +8,20 @@ services:
       dockerfile: Dockerfile
     image: neon_orbit_app:latest
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
       - APP_ROLE=web-api
-      - DATABASE_URL=postgres://neon_user:${POSTGRES_PASSWORD}@pgbouncer:6432/neon_orbit
+      - DATABASE_URL=postgres://neon_user:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@pgbouncer:6432/neon_orbit
       - REDIS_URL=redis://redis:6379
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - BOT_USERNAME=${BOT_USERNAME:-NeonOrbitBot}
       - APP_URL=${APP_URL:-http://localhost:3000}
       - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS:-}
-      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
-      - JWT_SECRET=${JWT_SECRET}
-      - METRICS_SECRET=${METRICS_SECRET}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - METRICS_SECRET=${METRICS_SECRET:?METRICS_SECRET is required}
     depends_on:
       pgbouncer:
         condition: service_started
@@ -45,15 +45,15 @@ services:
       - NODE_ENV=production
       - PORT=3001
       - APP_ROLE=telegram-bot
-      - DATABASE_URL=postgres://neon_user:${POSTGRES_PASSWORD}@pgbouncer:6432/neon_orbit
+      - DATABASE_URL=postgres://neon_user:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@pgbouncer:6432/neon_orbit
       - REDIS_URL=redis://redis:6379
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - BOT_USERNAME=${BOT_USERNAME:-NeonOrbitBot}
       - APP_URL=${APP_URL:-http://localhost:3000}
       - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS:-}
-      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
-      - JWT_SECRET=${JWT_SECRET}
-      - METRICS_SECRET=${METRICS_SECRET}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - METRICS_SECRET=${METRICS_SECRET:?METRICS_SECRET is required}
     depends_on:
       pgbouncer:
         condition: service_started
@@ -71,15 +71,15 @@ services:
       - NODE_ENV=production
       - PORT=3002
       - APP_ROLE=worker
-      - DATABASE_URL=postgres://neon_user:${POSTGRES_PASSWORD}@pgbouncer:6432/neon_orbit
+      - DATABASE_URL=postgres://neon_user:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@pgbouncer:6432/neon_orbit
       - REDIS_URL=redis://redis:6379
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - BOT_USERNAME=${BOT_USERNAME:-NeonOrbitBot}
       - APP_URL=${APP_URL:-http://localhost:3000}
       - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS:-}
-      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
-      - JWT_SECRET=${JWT_SECRET}
-      - METRICS_SECRET=${METRICS_SECRET}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - METRICS_SECRET=${METRICS_SECRET:?METRICS_SECRET is required}
     depends_on:
       pgbouncer:
         condition: service_started
@@ -93,7 +93,7 @@ services:
     container_name: neon_orbit_pgbouncer
     environment:
       - DB_USER=neon_user
-      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - DB_NAME=neon_orbit
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -111,7 +111,7 @@ services:
     container_name: neon_orbit_postgres
     environment:
       POSTGRES_USER: neon_user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: neon_orbit
     volumes:
       - postgres_data:/var/lib/postgresql/data
