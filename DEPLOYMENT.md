@@ -12,7 +12,8 @@ Make sure the following environment variables are set in production:
 | :--- | :--- | :--- |
 | `NODE_ENV` | Environment mode | `production` |
 | `PORT` | Server HTTP port | `3000` |
-| `APP_URL` | Public HTTPS domain of your deployment | `https://neon-orbit.up.railway.app` |
+| `APP_URL` | Public HTTPS domain of your backend deployment | `https://neon-orbit.up.railway.app` |
+| `VITE_API_URL` | (Frontend Vercel) URL of persistent Express backend | `https://neon-orbit.up.railway.app` |
 | `TELEGRAM_BOT_TOKEN` | Bot API Token from @BotFather | `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ` |
 | `BOT_USERNAME` | Telegram Bot username (without `@`) | `NeonOrbitBot` |
 | `ADMIN_TELEGRAM_IDS` | Comma-separated admin Telegram IDs | `12345678,98765432` |

@@ -58,7 +58,7 @@ app.use(
         'https://webk.telegram.org',
         'https://webz.telegram.org',
       ].filter(Boolean) as string[];
-      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.telegram.org')) {
+      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.telegram.org') || origin.endsWith('.vercel.app')) {
         return callback(null, true);
       }
       return callback(new Error('CORS policy error: Origin not allowed.'));

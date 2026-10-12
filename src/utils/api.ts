@@ -69,6 +69,8 @@ export class ApiError extends Error {
   }
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const telegramApp = getTelegramApp();
   const initData = telegramApp?.initData || '';
@@ -82,7 +84,9 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
     headers['Authorization'] = `tma ${initData}`;
   }
 
-  const response = await fetch(endpoint, {
+  const url = endpoint.startsWith('/') ? `${API_BASE_URL}${endpoint}` : endpoint;
+
+  const response = await fetch(url, {
     ...options,
     headers,
   });

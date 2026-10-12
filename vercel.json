@@ -4,14 +4,6 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.ts"
-    },
-    {
-      "source": "/telegram/webhook(.*)",
-      "destination": "/api/index.ts"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
