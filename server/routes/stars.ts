@@ -58,8 +58,14 @@ export async function fulfillPayment(paymentId: string, telegramPaymentChargeId:
         [telegramPaymentChargeId]
       );
       if (existingCharge.rows.length > 0) {
-        console.log(`[PAYMENTS] Charge ID ${telegramPaymentChargeId} already processed.`);
-        return { success: true, alreadyPaid: true };
+        const matchedPaymentId = existingCharge.rows[0].id;
+        if (matchedPaymentId === paymentId) {
+          console.log(`[PAYMENTS] Charge ID ${telegramPaymentChargeId} already processed for payment ${paymentId}.`);
+          return { success: true, alreadyPaid: true };
+        } else {
+          console.error(`[PAYMENTS SECURITY ERROR] Charge ID ${telegramPaymentChargeId} already used by different payment ${matchedPaymentId} (attempted on ${paymentId}).`);
+          return { success: false, error: 'CHARGE_ID_ALREADY_USED_BY_ANOTHER_PAYMENT' };
+        }
       }
     }
 

@@ -25,9 +25,9 @@ describe('SQL Schema Contracts & Migration Integration Tests (F27 / SQL Audit)',
     expect(fs.existsSync(migrationsDir)).toBe(true);
 
     const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
-    expect(files.length).toBeGreaterThanOrEqual(15);
+    expect(files.length).toBeGreaterThanOrEqual(16);
     expect(files[0]).toBe('001_initial_schema.sql');
-    expect(files[files.length - 1]).toBe('015_add_language_code_to_users.sql');
+    expect(files[files.length - 1]).toBe('016_payment_user_on_delete_set_null.sql');
   });
 
   it('migration contract validates table and column definitions across SQL files', () => {
