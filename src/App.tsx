@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Play, Flame, Award, Sparkles, Star, Users, ShieldCheck, Share2 } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 import { GameCanvas } from './components/GameCanvas';
 import { HUD } from './components/HUD';
 import { TopNav } from './components/TopNav';
@@ -734,6 +735,7 @@ export default function App() {
           }}
         />
       )}
+      <Analytics />
     </div>
   );
 }
