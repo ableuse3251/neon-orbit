@@ -69,7 +69,23 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+export function normalizeApiUrl(baseUrl: string | undefined, endpoint: string): string {
+  const cleanBase = (baseUrl || '').trim().replace(/\/+$/, '');
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (!cleanBase) {
+    return cleanEndpoint;
+  }
+  return `${cleanBase}${cleanEndpoint}`;
+}
+
+const RAW_API_BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
+  (import.meta.env.VITE_API_URL as string | undefined) ||
+  '';
+
+export function getNormalizedApiUrl(endpoint: string): string {
+  return normalizeApiUrl(RAW_API_BASE_URL, endpoint);
+}
 
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const telegramApp = getTelegramApp();
@@ -84,7 +100,7 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
     headers['Authorization'] = `tma ${initData}`;
   }
 
-  const url = endpoint.startsWith('/') ? `${API_BASE_URL}${endpoint}` : endpoint;
+  const url = getNormalizedApiUrl(endpoint);
 
   const response = await fetch(url, {
     ...options,
