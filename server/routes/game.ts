@@ -13,14 +13,7 @@ import { config } from '../config.js';
 
 const router = Router();
 
-/**
- * Helper to check if Golden Hour is currently active on server
- * (Golden Hour: 18:00 - 19:00 UTC every day)
- */
-function isGoldenHourOnServer(): boolean {
-  const currentHour = new Date().getUTCHours();
-  return currentHour === 18;
-}
+import { isGoldenHourActiveServer } from '../services/events.js';
 
 // 1. POST /round/start & /game/round/start
 const handleStartRound = async (req: Request, res: Response) => {
@@ -265,9 +258,9 @@ const handleSubmitRound = async (req: Request, res: Response) => {
     }
   }
 
-  // Server Golden Hour Calculation
-  const isGoldenHour = isGoldenHourOnServer();
-  const confirmedScore = isGoldenHour ? evalResult.recalculatedScore * 2 : evalResult.recalculatedScore;
+  // Server Golden Hour Calculation from single source of truth app_config
+  const eventStatus = await isGoldenHourActiveServer();
+  const confirmedScore = eventStatus.isActive ? evalResult.recalculatedScore * eventStatus.multiplier : evalResult.recalculatedScore;
 
   // Calculate rewards server-side
   const rewards = calculateRoundRewards({
@@ -334,7 +327,7 @@ const handleSubmitRound = async (req: Request, res: Response) => {
               evalResult.hits,
               evalResult.maxCombo,
               durationMs,
-              JSON.stringify({ verified: true, goldenHour: isGoldenHour }),
+              JSON.stringify({ verified: true, goldenHour: eventStatus.isActive, multiplier: eventStatus.multiplier }),
               dbRound.id,
             ]
           );
