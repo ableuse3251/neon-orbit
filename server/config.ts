@@ -29,7 +29,7 @@ export function validateProductionConfig(cfg: typeof config) {
 }
 
 export const config = {
-  port: Number(process.env.APP_PORT) || 3000,
+  port: Number(process.env.PORT) || Number(process.env.APP_PORT) || 3000,
   nodeEnv,
   botToken,
   botUsername: process.env.BOT_USERNAME || 'Neon_orbitbot',
