@@ -100,10 +100,17 @@ export async function processNotificationQueue(): Promise<void> {
   if (!isDbActive()) return;
 
   try {
+    // Recover stale processing tasks (e.g. if a worker crashed) stuck in 'processing' for > 15 minutes
+    await query(`
+      UPDATE notification_queue
+      SET status = 'pending', scheduled_for = NOW() + INTERVAL '2 minutes', updated_at = NOW()
+      WHERE status = 'processing' AND updated_at < NOW() - INTERVAL '15 minutes'
+    `);
+
     // Atomically claim pending jobs using FOR UPDATE SKIP LOCKED for multi-instance safety (NE-19)
     const { rows } = await query(
       `UPDATE notification_queue
-       SET status = 'processing'
+       SET status = 'processing', updated_at = NOW()
        WHERE id IN (
          SELECT q.id
          FROM notification_queue q
@@ -138,7 +145,7 @@ export async function processNotificationQueue(): Promise<void> {
       if (inQuietHours) {
         // Postpone scheduled time by 4 hours and return status to pending
         await query(
-          `UPDATE notification_queue SET status = 'pending', scheduled_for = NOW() + INTERVAL '4 hours' WHERE id = $1`,
+          `UPDATE notification_queue SET status = 'pending', scheduled_for = NOW() + INTERVAL '4 hours', updated_at = NOW() WHERE id = $1`,
           [item.id]
         );
         continue;
@@ -162,7 +169,7 @@ export async function processNotificationQueue(): Promise<void> {
 
         // Mark as sent
         await query(
-          `UPDATE notification_queue SET status = 'sent', sent_at = NOW() WHERE id = $1`,
+          `UPDATE notification_queue SET status = 'sent', sent_at = NOW(), updated_at = NOW() WHERE id = $1`,
           [item.id]
         );
 
@@ -180,13 +187,13 @@ export async function processNotificationQueue(): Promise<void> {
         if (errStr.includes('403') || errStr.includes('blocked') || errStr.includes('deactivated')) {
           logger.warn(`User ${item.user_id} blocked bot. Disabling notifications.`);
           await query(`UPDATE users SET notifications_enabled = FALSE WHERE id = $1`, [item.user_id]);
-          await query(`UPDATE notification_queue SET status = 'failed', attempts = $1, error = $2 WHERE id = $3`, [attempts, errStr, item.id]);
+          await query(`UPDATE notification_queue SET status = 'failed', attempts = $1, error = $2, updated_at = NOW() WHERE id = $3`, [attempts, errStr, item.id]);
         } else if (errStr.includes('429') || errStr.includes('Too Many Requests') || err?.parameters?.retry_after) {
           // Handle Telegram 429 rate limit with retry_after backoff
           const retryAfterSec = err?.parameters?.retry_after || 60;
           logger.warn(`Telegram rate limit (429) hit for notification ${item.id}. Retrying after ${retryAfterSec}s.`);
           await query(
-            `UPDATE notification_queue SET status = 'pending', attempts = $1, scheduled_for = NOW() + INTERVAL '1 second' * $2, error = $3 WHERE id = $4`,
+            `UPDATE notification_queue SET status = 'pending', attempts = $1, scheduled_for = NOW() + INTERVAL '1 second' * $2, error = $3, updated_at = NOW() WHERE id = $4`,
             [attempts, retryAfterSec, errStr, item.id]
           );
         } else if (attempts < maxAttempts) {
@@ -194,14 +201,14 @@ export async function processNotificationQueue(): Promise<void> {
           const backoffMinutes = Math.pow(2, attempts);
           logger.error(`Failed to send notification to ${item.user_id} (attempt ${attempts}/${maxAttempts}). Retrying in ${backoffMinutes}m:`, errStr);
           await query(
-            `UPDATE notification_queue SET status = 'pending', attempts = $1, scheduled_for = NOW() + INTERVAL '1 minute' * $2, error = $3 WHERE id = $4`,
+            `UPDATE notification_queue SET status = 'pending', attempts = $1, scheduled_for = NOW() + INTERVAL '1 minute' * $2, error = $3, updated_at = NOW() WHERE id = $4`,
             [attempts, backoffMinutes, errStr, item.id]
           );
         } else {
           // Max attempts reached -> dead-letter status
           logger.error(`Notification ${item.id} permanently failed after ${maxAttempts} attempts:`, errStr);
           await query(
-            `UPDATE notification_queue SET status = 'dead_letter', attempts = $1, error = $2 WHERE id = $3`,
+            `UPDATE notification_queue SET status = 'dead_letter', attempts = $1, error = $2, updated_at = NOW() WHERE id = $3`,
             [attempts, errStr, item.id]
           );
         }
