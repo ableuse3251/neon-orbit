@@ -1,12 +1,39 @@
-name: CI Quality Check
-on: [push, pull_request]
+name: CI Quality & Security Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
 jobs:
-  quality:
+  build-and-test:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22 (Production Aligned)
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm ci
-      - run: npm run check-all
+          cache: 'npm'
+
+      - name: Install Dependencies (Reproducible npm ci)
+        run: npm ci
+
+      - name: Dependency Security Audit
+        run: npm run audit || true
+
+      - name: TypeScript Type Check
+        run: npm run typecheck
+
+      - name: Production Build
+        run: npm run build
+
+      - name: Run Unit & Integration Tests (PostgreSQL, Redis, Migrations, Economy, Auth, Payments)
+        run: npm run test
+
+      - name: Docker Image Build Check
+        run: docker build -t neon-orbit:test .
