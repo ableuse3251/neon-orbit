@@ -7,7 +7,7 @@ import { config } from './server/config.js';
 import { logger, setupUnhandledErrorHandlers } from './server/logger.js';
 import { runMigrations } from './server/migrations.js';
 import { closeDb } from './server/db.js';
-import { closeRedis } from './server/redis.js';
+import { closeRedis, redisIncrWithExpire } from './server/redis.js';
 import { stopNotificationWorker } from './server/services/notifications.js';
 import { setupTelegramBot, bot } from './bot.js';
 import healthRouter from './server/routes/health.js';
@@ -70,11 +70,24 @@ app.use(
 // 3. Strict JSON body parser limit
 app.use(express.json({ limit: '100kb' }));
 
-// 4. Rate limiters...
+// 4. Distributed Rate Limiter across replicas with Redis store
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 150,
   message: { error: 'Too many requests.' },
+  store: {
+    init: () => {},
+    increment: async (key: string) => {
+      try {
+        const hits = await redisIncrWithExpire(`ratelimit:api:${key}`, 900);
+        return { totalHits: hits, resetTime: new Date(Date.now() + 15 * 60 * 1000) };
+      } catch {
+        return { totalHits: 1, resetTime: new Date(Date.now() + 15 * 60 * 1000) };
+      }
+    },
+    decrement: async () => {},
+    resetKey: async () => {},
+  },
 });
 app.use('/api/', apiLimiter);
 
@@ -99,14 +112,8 @@ app.use('/api', viralRouter);
 app.use('/api', notificationsRouter);
 
 async function startServer() {
-  try {
-    await runMigrations();
-  } catch (err) {
-    logger.error('FATAL ERROR: Failed to run database migrations:', err);
-    process.exit(1);
-  }
-
-  await setupTelegramBot(app);
+  const appRole = (process.env.APP_ROLE || process.env.ROLE || 'all').toLowerCase();
+  logger.info(`Starting Neon Orbit instance with APP_ROLE: ${appRole}`);
 
   if (config.nodeEnv !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -123,9 +130,31 @@ async function startServer() {
     });
   }
 
+  // 1. Start HTTP server FIRST so port is open immediately for Cloud Run probes
   const server = app.listen(config.port, '0.0.0.0', () => {
-    logger.info(`Neon Orbit server listening on http://0.0.0.0:${config.port} (env: ${config.nodeEnv})`);
+    logger.info(`Neon Orbit server listening on http://0.0.0.0:${config.port} (role: ${appRole}, env: ${config.nodeEnv})`);
   });
+
+  // 2. Run migrations after server is listening
+  try {
+    await runMigrations();
+  } catch (err) {
+    logger.error('FATAL ERROR: Failed to run database migrations:', err);
+    if (config.nodeEnv === 'production' && !config.mockModeAllowed) {
+      process.exit(1);
+    }
+  }
+
+  // 3. Setup Telegram bot (only if role is 'all' or 'telegram-bot')
+  if (appRole === 'all' || appRole === 'telegram-bot') {
+    try {
+      await setupTelegramBot(app);
+    } catch (err) {
+      logger.error('Failed to setup Telegram bot:', err);
+    }
+  } else {
+    logger.info(`Skipping Telegram bot long-polling startup for role: ${appRole}`);
+  }
 
   // Graceful Shutdown
   const gracefulShutdown = async (signal: string) => {

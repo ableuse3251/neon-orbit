@@ -58,15 +58,23 @@ describe('Admin Security Middleware, RBAC & F15 Report Validation Tests', () => 
   });
 
   it('verifies config.adminTelegramIds check logic for /report', () => {
-    const adminIds = config.adminTelegramIds;
-    expect(Array.isArray(adminIds)).toBe(true);
+    const originalAdminIds = [...config.adminTelegramIds];
+    const fixtureAdminIds = originalAdminIds.length > 0 ? originalAdminIds : ['123456', '789012'];
+    config.adminTelegramIds = fixtureAdminIds;
 
-    const testAdminId = String(adminIds[0] || '123456');
-    const testNonAdminId = '999999999';
+    try {
+      const adminIds = config.adminTelegramIds;
+      expect(Array.isArray(adminIds)).toBe(true);
 
-    const isAdminCheck = (userId: string) => adminIds.some((id) => String(id) === userId);
+      const testAdminId = String(adminIds[0]);
+      const testNonAdminId = '999999999';
 
-    expect(isAdminCheck(testAdminId)).toBe(true);
-    expect(isAdminCheck(testNonAdminId)).toBe(false);
+      const isAdminCheck = (userId: string) => adminIds.some((id) => String(id) === userId);
+
+      expect(isAdminCheck(testAdminId)).toBe(true);
+      expect(isAdminCheck(testNonAdminId)).toBe(false);
+    } finally {
+      config.adminTelegramIds = originalAdminIds;
+    }
   });
 });

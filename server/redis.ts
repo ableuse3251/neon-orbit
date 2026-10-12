@@ -8,6 +8,7 @@ let isRedisConnected = false;
 class MemoryRedisFallback {
   private kvStore = new Map<string, string>();
   private zStore = new Map<string, Map<string, number>>();
+  private expireStore = new Map<string, number>();
 
   async get(key: string): Promise<string | null> {
     return this.kvStore.get(key) ?? null;
@@ -18,9 +19,28 @@ class MemoryRedisFallback {
     return 'OK';
   }
 
+  async incrWithExpire(key: string, ttlSeconds: number): Promise<number> {
+    const now = Date.now();
+    const expireAt = this.expireStore.get(key);
+    if (expireAt && now > expireAt) {
+      this.kvStore.delete(key);
+      this.expireStore.delete(key);
+    }
+
+    const currentVal = Number(this.kvStore.get(key) || 0);
+    const newVal = currentVal + 1;
+    this.kvStore.set(key, String(newVal));
+
+    if (!this.expireStore.has(key)) {
+      this.expireStore.set(key, now + ttlSeconds * 1000);
+    }
+    return newVal;
+  }
+
   async del(key: string): Promise<number> {
     const deleted = this.kvStore.delete(key);
     this.zStore.delete(key);
+    this.expireStore.delete(key);
     return deleted ? 1 : 0;
   }
 
@@ -238,6 +258,21 @@ export async function redisZRevRange(
     }
   }
   return memoryFallback.zrevrange(key, start, stop, withScores ? 'WITHSCORES' : '');
+}
+
+export async function redisIncrWithExpire(key: string, ttlSeconds: number): Promise<number> {
+  if (redisClient && isRedisConnected) {
+    try {
+      const count = await redisClient.incr(key);
+      if (count === 1) {
+        await redisClient.expire(key, ttlSeconds);
+      }
+      return count;
+    } catch {
+      return memoryFallback.incrWithExpire(key, ttlSeconds);
+    }
+  }
+  return memoryFallback.incrWithExpire(key, ttlSeconds);
 }
 
 export async function checkRedisHealth(): Promise<{ status: 'ok' | 'degraded' | 'disabled'; message?: string }> {

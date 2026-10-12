@@ -1,23 +1,51 @@
 import { Router, Request, Response } from 'express';
 import { query, isDbActive } from '../db.js';
+import { redisIncrWithExpire } from '../redis.js';
 import { config } from '../config.js';
 import { analyticsBatchSchema } from '../validators.js';
 
 const router = Router();
 
-// In-memory rate limiter for anonymous analytics submission
+// Bounded in-memory rate limiter fallback for anonymous analytics submission
+const MAX_ANONYMOUS_MEMORY_ENTRIES = 5000;
 const anonymousRateLimits = new Map<string, { count: number; resetTime: number }>();
 
-function checkAnonymousRateLimit(ip: string): boolean {
+async function checkAnonymousRateLimit(ip: string): Promise<boolean> {
+  // 1. Multi-instance rate limiting via Redis if configured
+  try {
+    const count = await redisIncrWithExpire(`ratelimit:analytics:anon:${ip}`, 60);
+    return count <= 30;
+  } catch {
+    // 2. Bounded in-memory fallback
+  }
+
   const now = Date.now();
   const record = anonymousRateLimits.get(ip);
+
   if (!record || now > record.resetTime) {
-    anonymousRateLimits.set(ip, { count: 1, resetTime: now + 60000 }); // 1 minute window
+    // Prevent memory leaks / OOM by enforcing max entry limit and pruning expired IPs
+    if (anonymousRateLimits.size >= MAX_ANONYMOUS_MEMORY_ENTRIES) {
+      for (const [key, entry] of anonymousRateLimits.entries()) {
+        if (now > entry.resetTime) {
+          anonymousRateLimits.delete(key);
+        }
+      }
+      if (anonymousRateLimits.size >= MAX_ANONYMOUS_MEMORY_ENTRIES) {
+        const oldestKeys = Array.from(anonymousRateLimits.keys()).slice(0, 500);
+        for (const k of oldestKeys) {
+          anonymousRateLimits.delete(k);
+        }
+      }
+    }
+
+    anonymousRateLimits.set(ip, { count: 1, resetTime: now + 60000 });
     return true;
   }
-  if (record.count >= 30) { // max 30 requests per min for anonymous
+
+  if (record.count >= 30) {
     return false;
   }
+
   record.count++;
   return true;
 }
@@ -30,7 +58,8 @@ router.post('/analytics/events', async (req: Request, res: Response) => {
   const userId = req.user?.id ? String(req.user.id) : 'anonymous';
   if (userId === 'anonymous') {
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-    if (!checkAnonymousRateLimit(clientIp)) {
+    const isAllowed = await checkAnonymousRateLimit(clientIp);
+    if (!isAllowed) {
       return res.status(429).json({ error: 'Rate limit exceeded for anonymous analytics' });
     }
   }

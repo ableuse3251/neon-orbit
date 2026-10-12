@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import crypto from 'crypto';
 import { verifyTelegramInitData, parseInitData } from '../middleware/auth.js';
 import { config, validateProductionConfig } from '../config.js';
@@ -19,6 +19,15 @@ function createValidInitData(botToken: string, authDate: number, userData: any) 
 
 describe('Telegram InitData Verification & Config Security Audit Tests', () => {
   const testBotToken = '123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ';
+  let originalBotToken: string;
+
+  beforeEach(() => {
+    originalBotToken = config.botToken;
+  });
+
+  afterEach(() => {
+    config.botToken = originalBotToken;
+  });
 
   it('rejects missing or empty initData', () => {
     const res = verifyTelegramInitData('');

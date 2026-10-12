@@ -24,7 +24,7 @@ jobs:
         run: npm ci
 
       - name: Dependency Security Audit
-        run: npm run audit || true
+        run: npm run audit
 
       - name: TypeScript Type Check
         run: npm run typecheck

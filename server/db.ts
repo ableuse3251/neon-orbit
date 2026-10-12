@@ -1,3 +1,4 @@
+import fs from 'fs';
 import pg from 'pg';
 import { config } from './config.js';
 
@@ -13,9 +14,26 @@ export function setDbConnected(connected: boolean) {
 if (config.databaseUrl) {
   try {
     const poolMax = Number(process.env.DB_POOL_MAX || 25);
+    let sslConfig: boolean | pg.ConnectionConfig['ssl'] = false;
+
+    if (config.nodeEnv === 'production' || config.dbSslCa) {
+      let ca: string | undefined = undefined;
+      if (config.dbSslCa) {
+        if (fs.existsSync(config.dbSslCa)) {
+          ca = fs.readFileSync(config.dbSslCa, 'utf-8');
+        } else {
+          ca = config.dbSslCa;
+        }
+      }
+      sslConfig = {
+        rejectUnauthorized: config.dbSslRejectUnauthorized,
+        ca,
+      };
+    }
+
     pool = new Pool({
       connectionString: config.databaseUrl,
-      ssl: config.nodeEnv === 'production' ? { rejectUnauthorized: false } : false,
+      ssl: sslConfig,
       max: poolMax,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,

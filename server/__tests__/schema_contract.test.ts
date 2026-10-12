@@ -26,9 +26,9 @@ describe('SQL Schema Contracts & Migration Integration Tests (F27 / SQL Audit)',
     expect(fs.existsSync(migrationsDir)).toBe(true);
 
     const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
-    expect(files.length).toBeGreaterThanOrEqual(17);
+    expect(files.length).toBeGreaterThanOrEqual(18);
     expect(files[0]).toBe('001_initial_schema.sql');
-    expect(files[files.length - 1]).toBe('017_notification_queue_updated_at.sql');
+    expect(files[files.length - 1]).toBe('018_scaling_indexes.sql');
   });
 
   it('migration contract validates table and column definitions across SQL files', () => {

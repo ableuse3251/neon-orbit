@@ -223,9 +223,15 @@ export async function processNotificationQueue(): Promise<void> {
 }
 
 // Background interval worker with graceful shutdown support
-let workerInterval: NodeJS.Timeout | null = setInterval(() => {
-  processNotificationQueue().catch((err) => logger.error('Notification queue worker error:', err));
-}, 30000);
+let workerInterval: NodeJS.Timeout | null = null;
+
+export function startNotificationWorker(intervalMs = 30000): void {
+  if (workerInterval) return;
+  workerInterval = setInterval(() => {
+    processNotificationQueue().catch((err) => logger.error('Notification queue worker error:', err));
+  }, intervalMs);
+  logger.info(`Notification queue worker started with interval ${intervalMs}ms.`);
+}
 
 export function stopNotificationWorker(): void {
   if (workerInterval) {
@@ -234,3 +240,10 @@ export function stopNotificationWorker(): void {
     logger.info('Notification queue worker stopped gracefully.');
   }
 }
+
+// Auto-start worker unless explicitly running as web-api
+const appRole = (process.env.APP_ROLE || process.env.ROLE || 'all').toLowerCase();
+if (appRole === 'all' || appRole === 'worker') {
+  startNotificationWorker();
+}
+

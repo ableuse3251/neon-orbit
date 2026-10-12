@@ -5,10 +5,11 @@ dotenv.config();
 const nodeEnv = process.env.NODE_ENV || 'development';
 const jwtSecret = process.env.JWT_SECRET || 'default_jwt_secret_change_me';
 const webhookSecret = process.env.WEBHOOK_SECRET || 'default_webhook_secret';
+const metricsSecret = process.env.METRICS_SECRET || 'default_metrics_secret';
 const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
 const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
 
-export function validateProductionConfig(cfg: typeof config) {
+export function validateProductionConfig(cfg: Partial<typeof config>) {
   if (cfg.nodeEnv === 'production') {
     if (cfg.devAuthBypass) {
       throw new Error('CRITICAL CONFIGURATION ERROR: DEV_AUTH_BYPASS is strictly forbidden in production.');
@@ -18,6 +19,9 @@ export function validateProductionConfig(cfg: typeof config) {
     }
     if (!cfg.webhookSecret || cfg.webhookSecret === 'default_webhook_secret') {
       throw new Error('CRITICAL CONFIGURATION ERROR: Default or empty WEBHOOK_SECRET is forbidden in production.');
+    }
+    if (!cfg.metricsSecret || cfg.metricsSecret === 'default_metrics_secret') {
+      throw new Error('CRITICAL CONFIGURATION ERROR: Default or empty METRICS_SECRET is forbidden in production.');
     }
     if (!cfg.databaseUrl) {
       throw new Error('CRITICAL CONFIGURATION ERROR: DATABASE_URL is required in production.');
@@ -44,9 +48,13 @@ export const config = {
     .map((id) => id.trim())
     .filter(Boolean),
   databaseUrl,
+  dbSslCa: process.env.PG_CA_CERT || process.env.DB_SSL_CA || '',
+  dbSslRejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
   redisUrl: process.env.REDIS_URL || '',
   jwtSecret,
   webhookSecret,
+  metricsSecret,
+  telegramInitDataMaxAgeSeconds: Number(process.env.TELEGRAM_INITDATA_MAX_AGE_SECONDS) || 7200,
 };
 
 if (config.nodeEnv === 'production') {

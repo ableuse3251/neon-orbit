@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import crypto from 'crypto';
 import { verifyTelegramInitData, requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/admin.js';
@@ -21,6 +21,18 @@ function createValidInitData(botToken: string, authDate: number, userData: any) 
 
 describe('Telegram Auth & Admin Security Audit Tests (F32 / Auth & RBAC)', () => {
   const testBotToken = '123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ';
+  let originalBotToken: string;
+  let originalAdminIds: string[];
+
+  beforeEach(() => {
+    originalBotToken = config.botToken;
+    originalAdminIds = [...config.adminTelegramIds];
+  });
+
+  afterEach(() => {
+    config.botToken = originalBotToken;
+    config.adminTelegramIds = originalAdminIds;
+  });
 
   it('verifies a valid Telegram initData signature', () => {
     config.botToken = testBotToken;

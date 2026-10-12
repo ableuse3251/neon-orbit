@@ -62,8 +62,9 @@ export function verifyTelegramInitData(initDataStr: string): { isValid: boolean;
   }
 
   const now = Math.floor(Date.now() / 1000);
-  if (now - authDate > 86400) {
-    return { isValid: false, reason: 'initData expired (older than 24 hours)' };
+  const maxAgeSeconds = config.telegramInitDataMaxAgeSeconds || 7200;
+  if (now - authDate > maxAgeSeconds) {
+    return { isValid: false, reason: `initData expired (older than ${maxAgeSeconds} seconds)` };
   }
   if (authDate > now + 300) {
     return { isValid: false, reason: 'initData auth_date is in the future' };

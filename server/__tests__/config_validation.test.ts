@@ -7,6 +7,7 @@ describe('Production Configuration Validation & Fail-Fast Tests (F31 / Config Au
       nodeEnv: 'production',
       jwtSecret: 'secure_jwt_secret_1234567890',
       webhookSecret: 'secure_webhook_secret_1234567890',
+      metricsSecret: 'secure_metrics_secret_1234567890',
       databaseUrl: 'postgres://user:pass@localhost:5432/db',
       botToken: '123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ',
       mockModeAllowed: false,
@@ -26,6 +27,7 @@ describe('Production Configuration Validation & Fail-Fast Tests (F31 / Config Au
       nodeEnv: 'production',
       jwtSecret: 'default_jwt_secret_change_me',
       webhookSecret: 'secure_webhook_secret_1234567890',
+      metricsSecret: 'secure_metrics_secret_1234567890',
       databaseUrl: 'postgres://user:pass@localhost:5432/db',
       botToken: '123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ',
       mockModeAllowed: false,
@@ -45,6 +47,7 @@ describe('Production Configuration Validation & Fail-Fast Tests (F31 / Config Au
       nodeEnv: 'production',
       jwtSecret: 'secure_jwt_secret_1234567890',
       webhookSecret: 'secure_webhook_secret_1234567890',
+      metricsSecret: 'secure_metrics_secret_1234567890',
       databaseUrl: '',
       botToken: '123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ',
       mockModeAllowed: false,
@@ -64,6 +67,7 @@ describe('Production Configuration Validation & Fail-Fast Tests (F31 / Config Au
       nodeEnv: 'production',
       jwtSecret: 'secure_jwt_secret_1234567890',
       webhookSecret: 'secure_webhook_secret_1234567890',
+      metricsSecret: 'secure_metrics_secret_1234567890',
       databaseUrl: 'postgres://user:pass@localhost:5432/db',
       botToken: '111111111:placeholder',
       mockModeAllowed: false,
@@ -83,6 +87,7 @@ describe('Production Configuration Validation & Fail-Fast Tests (F31 / Config Au
       nodeEnv: 'production',
       jwtSecret: 'secure_jwt_secret_1234567890',
       webhookSecret: 'secure_webhook_secret_1234567890',
+      metricsSecret: 'secure_metrics_secret_1234567890',
       databaseUrl: 'postgres://user:pass@localhost:5432/db',
       botToken: '123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ',
       mockModeAllowed: true,
@@ -95,5 +100,25 @@ describe('Production Configuration Validation & Fail-Fast Tests (F31 / Config Au
     };
 
     expect(() => validateProductionConfig(invalidConfig)).toThrowError(/Mock mode is strictly forbidden in production/);
+  });
+
+  it('fails fast when METRICS_SECRET is default or missing in production', () => {
+    const invalidConfig = {
+      nodeEnv: 'production',
+      jwtSecret: 'secure_jwt_secret_1234567890',
+      webhookSecret: 'secure_webhook_secret_1234567890',
+      metricsSecret: 'default_metrics_secret',
+      databaseUrl: 'postgres://user:pass@localhost:5432/db',
+      botToken: '123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ',
+      mockModeAllowed: false,
+      port: 3000,
+      botUsername: 'bot',
+      devAuthBypass: false,
+      appUrl: 'https://example.com',
+      adminTelegramIds: [],
+      redisUrl: '',
+    };
+
+    expect(() => validateProductionConfig(invalidConfig)).toThrowError(/METRICS_SECRET/);
   });
 });

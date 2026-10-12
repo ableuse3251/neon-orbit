@@ -28,10 +28,19 @@ export function setActiveSessions(count: number) {
 }
 
 router.get('/metrics', async (req: Request, res: Response) => {
+  // Security protection: Forbid token in query parameters to prevent leakage in logs/proxies
+  if (req.query.token) {
+    return res.status(400).json({ error: 'Token in query string is forbidden. Pass token via Authorization or X-Metrics-Token header.' });
+  }
+
   if (config.nodeEnv === 'production') {
-    const metricsToken = req.headers['x-metrics-token'] || req.query.token;
-    if (!metricsToken || String(metricsToken) !== String(config.webhookSecret)) {
-      return res.status(403).json({ error: 'Access denied: Valid metrics token required' });
+    const authHeader = req.headers['authorization'];
+    const bearerToken = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+    const xMetricsToken = req.headers['x-metrics-token'] as string | undefined;
+
+    const tokenUsed = xMetricsToken || bearerToken;
+    if (!tokenUsed || tokenUsed !== config.metricsSecret) {
+      return res.status(403).json({ error: 'Access denied: Valid metrics token required in headers' });
     }
   }
 
