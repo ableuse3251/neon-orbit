@@ -76,10 +76,10 @@ describe('Migrations Fail-Fast & Deployment Safety (F10 / NE-09)', () => {
 
     await runMigrations();
 
-    expect(mockClient.query).toHaveBeenCalledWith('SELECT pg_advisory_lock(7483921)');
+    expect(mockClient.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(7483921)');
     expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
     expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
-    expect(mockClient.query).toHaveBeenCalledWith('SELECT pg_advisory_unlock(7483921)');
+    expect(mockClient.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(7483921)');
     expect(mockClient.release).toHaveBeenCalled();
   });
 
@@ -100,7 +100,7 @@ describe('Migrations Fail-Fast & Deployment Safety (F10 / NE-09)', () => {
     await expect(runMigrations()).rejects.toThrow('Syntax error');
 
     expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
-    expect(mockClient.query).toHaveBeenCalledWith('SELECT pg_advisory_unlock(7483921)');
+    expect(mockClient.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(7483921)');
     expect(mockClient.release).toHaveBeenCalled();
   });
 });

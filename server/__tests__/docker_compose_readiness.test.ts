@@ -267,12 +267,12 @@ describe('Docker Compose Production Launch & Readiness Verification Tests', () =
 
       const calls = mockClient.query.mock.calls.map((c) => c[0]);
       const beginIndex = calls.findIndex((c) => typeof c === 'string' && c.includes('BEGIN'));
-      const lockIndex = calls.findIndex((c) => typeof c === 'string' && c.includes('pg_advisory_lock'));
+      const lockIndex = calls.findIndex((c) => typeof c === 'string' && c.includes('pg_advisory_xact_lock'));
 
       expect(lockIndex).toBeGreaterThanOrEqual(0);
       expect(beginIndex).toBeGreaterThanOrEqual(0);
       expect(calls).toContain('COMMIT');
-      expect(calls).toContain('SELECT pg_advisory_unlock(7483921)');
+      // advisory xact lock unlocks automatically on transaction end
       expect(mockClient.release).toHaveBeenCalledTimes(1);
 
       const status = migrations.getMigrationStatus();

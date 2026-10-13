@@ -59,40 +59,27 @@ describe('SQL Schema Contracts & Migration Integration Tests (F27 / SQL Audit)',
     expect(allSql).toContain('acquisition_count');
   });
 
-  it('runMigrations executes sequential upgrade successfully with advisory locks', async () => {
+    it('runMigrations executes sequential upgrade successfully with advisory locks', async () => {
     const mockClient = {
-      query: vi.fn().mockResolvedValue({ rows: [] }),
+      query: vi.fn().mockImplementation(async (sql, params) => {
+        if (typeof sql === 'string') {
+          if (sql.includes('SELECT table_name')) {
+            return { rows: [{table_name:'schema_migrations'},{table_name:'users'},{table_name:'wallets'},{table_name:'inventory'},{table_name:'payments'},{table_name:'seasons'},{table_name:'season_scores'},{table_name:'payment_reconciliation_queue'},{table_name:'notification_queue'}] };
+          }
+          if (sql.includes('SELECT version')) {
+            return { rows: [] }; // simulate pending migration
+          }
+        }
+        return { rows: [] };
+      }),
       release: vi.fn(),
     };
     vi.mocked(db.pool!.connect).mockResolvedValue(mockClient as any);
     vi.mocked(db.pool!.query).mockResolvedValue({ rows: [{ '?column?': 1 }] } as any);
 
-    // Mock client responses for migration execution
-    mockClient.query
-      .mockResolvedValueOnce({ rows: [] }) // lock
-      .mockResolvedValueOnce({ rows: [] }) // begin
-      .mockResolvedValueOnce({ rows: [] }) // create tracking table
-      // For each migration file (15 files): check version, apply sql, insert version
-      // Let's mock a generic success for batch queries
-      .mockResolvedValue({ rows: [] });
-
-    // For schema verification query at the end
-    mockClient.query.mockResolvedValueOnce({ rows: [] }); // lock
-    mockClient.query.mockResolvedValueOnce({ rows: [] }); // begin
-    mockClient.query.mockResolvedValueOnce({ rows: [] }); // tracking
-    
-    // Setup generic implementation for remaining calls
-    mockClient.query.mockImplementation(async (sql: string) => {
-      if (sql.includes('SELECT table_name')) {
-        return { rows: [{ table_name: 'schema_migrations' }] };
-      }
-      return { rows: [] };
-    });
-
     await expect(runMigrations()).resolves.toBeUndefined();
-    expect(mockClient.query).toHaveBeenCalledWith('SELECT pg_advisory_lock(7483921)');
+    expect(mockClient.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(7483921)');
     expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
-    expect(mockClient.query).toHaveBeenCalledWith('SELECT pg_advisory_unlock(7483921)');
     expect(mockClient.release).toHaveBeenCalled();
   });
 });

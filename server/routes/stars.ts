@@ -84,8 +84,14 @@ export async function enqueuePaymentReconciliation(
       logger.info(`[PAYMENTS RECONCILIATION] Enqueued payment ${paymentId} (charge: ${telegramPaymentChargeId}) into DB reconciliation queue`, { correlationId });
       return { success: true, correlationId };
     } catch (dbErr: any) {
-      logger.error(`[PAYMENTS RECONCILIATION] Failed to insert into DB queue, falling back to memory: ${dbErr?.message || dbErr}`, { correlationId });
+      logger.error(`[PAYMENTS RECONCILIATION] Failed to insert into DB queue: ${dbErr?.message || dbErr}`, { correlationId });
+      if (config.nodeEnv === 'production') {
+        return { success: false, correlationId };
+      }
     }
+  } else if (config.nodeEnv === 'production') {
+    logger.error(`[PAYMENTS RECONCILIATION CRITICAL] Database inactive in production when attempting to enqueue payment ${paymentId}`, { correlationId });
+    return { success: false, correlationId };
   }
 
   // In-memory fallback

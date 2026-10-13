@@ -71,7 +71,7 @@ export async function runMigrations(): Promise<void> {
   const client = await pool.connect();
   try {
     // Acquire advisory lock to serialize migrations across concurrent instances
-    await client.query('SELECT pg_advisory_lock(7483921)');
+    await client.query('SELECT pg_advisory_xact_lock(7483921)');
 
     await client.query('BEGIN');
 
@@ -158,9 +158,6 @@ export async function runMigrations(): Promise<void> {
     console.error('Migration failed:', err);
     throw err; // Fail-fast: re-throw error so startup fails immediately on migration error
   } finally {
-    try {
-      await client.query('SELECT pg_advisory_unlock(7483921)');
-    } catch {}
     client.release();
   }
 }
