@@ -91,12 +91,8 @@ const apiLimiter = rateLimit({
   store: {
     init: () => {},
     increment: async (key: string) => {
-      try {
-        const hits = await redisIncrWithExpire(`ratelimit:api:${key}`, 900);
-        return { totalHits: hits, resetTime: new Date(Date.now() + 15 * 60 * 1000) };
-      } catch {
-        return { totalHits: 1, resetTime: new Date(Date.now() + 15 * 60 * 1000) };
-      }
+      const hits = await redisIncrWithExpire(`ratelimit:api:${key}`, 900);
+      return { totalHits: hits, resetTime: new Date(Date.now() + 15 * 60 * 1000) };
     },
     decrement: async () => {},
     resetKey: async () => {},

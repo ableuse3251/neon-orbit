@@ -19,6 +19,7 @@ class MemoryRedisFallback {
   private kvStore = new Map<string, string>();
   private zStore = new Map<string, Map<string, number>>();
   private expireStore = new Map<string, number>();
+  private maxEntries = 10000;
 
   async get(key: string): Promise<string | null> {
     return this.kvStore.get(key) ?? null;
@@ -35,6 +36,23 @@ class MemoryRedisFallback {
     if (expireAt && now > expireAt) {
       this.kvStore.delete(key);
       this.expireStore.delete(key);
+    }
+    if (this.kvStore.size >= this.maxEntries) {
+      for (const [k, exp] of this.expireStore.entries()) {
+        if (now > exp) {
+          this.kvStore.delete(k);
+          this.expireStore.delete(k);
+          this.zStore.delete(k);
+        }
+      }
+      if (this.kvStore.size >= this.maxEntries) {
+        const firstKey = this.kvStore.keys().next().value;
+        if (firstKey !== undefined) {
+          this.kvStore.delete(firstKey);
+          this.expireStore.delete(firstKey);
+          this.zStore.delete(firstKey);
+        }
+      }
     }
 
     const currentVal = Number(this.kvStore.get(key) || 0);
