@@ -36,7 +36,8 @@ describe('Telegram InitData Verification & Config Security Audit Tests', () => {
   });
 
   it('rejects invalid hash format (not 64-char hex)', () => {
-    const res = verifyTelegramInitData('user=%7B%22id%22%3A123%7D&auth_date=1700000000&hash=short_hash');
+    const now = Math.floor(Date.now() / 1000);
+    const res = verifyTelegramInitData(`user=%7B%22id%22%3A123%7D&auth_date=${now}&hash=short_hash`);
     expect(res.isValid).toBe(false);
     expect(res.reason).toContain('hash format');
   });
