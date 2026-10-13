@@ -1,0 +1,164 @@
+version: '3.8'
+
+services:
+  # Stateless HTTP API Replicas
+  web_api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: neon_orbit_app:latest
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - APP_ROLE=web-api
+      - DATABASE_URL=postgres://neon_user:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@pgbouncer:6432/neon_orbit
+      - DOCKER_LOCAL_DB=true
+      - DB_SSL=false
+      - REDIS_URL=redis://redis:6379
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - BOT_USERNAME=${BOT_USERNAME:-NeonOrbitBot}
+      - APP_URL=${APP_URL:-https://neon-orbit-omega.vercel.app}
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://neon-orbit-omega.vercel.app,https://web.telegram.org}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS:-}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - METRICS_SECRET=${METRICS_SECRET:?METRICS_SECRET is required}
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  # Dedicated Telegram Bot Handler Process
+  bot_handler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: neon_orbit_app:latest
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - APP_ROLE=telegram-bot
+      - DATABASE_URL=postgres://neon_user:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@pgbouncer:6432/neon_orbit
+      - DOCKER_LOCAL_DB=true
+      - DB_SSL=false
+      - REDIS_URL=redis://redis:6379
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - BOT_USERNAME=${BOT_USERNAME:-NeonOrbitBot}
+      - APP_URL=${APP_URL:-http://localhost:3000}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS:-}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - METRICS_SECRET=${METRICS_SECRET:?METRICS_SECRET is required}
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3001/api/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  # Dedicated Background Queue & Notification Worker Process
+  notification_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: neon_orbit_app:latest
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - APP_ROLE=worker
+      - DATABASE_URL=postgres://neon_user:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@pgbouncer:6432/neon_orbit
+      - DOCKER_LOCAL_DB=true
+      - DB_SSL=false
+      - REDIS_URL=redis://redis:6379
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - BOT_USERNAME=${BOT_USERNAME:-NeonOrbitBot}
+      - APP_URL=${APP_URL:-http://localhost:3000}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS:-}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - METRICS_SECRET=${METRICS_SECRET:?METRICS_SECRET is required}
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3002/api/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  # PgBouncer Connection Pooler
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: neon_orbit_pgbouncer
+    environment:
+      - DB_USER=neon_user
+      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - DB_NAME=neon_orbit
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - POOL_MODE=transaction
+      - MAX_CLIENT_CONN=250
+      - DEFAULT_POOL_SIZE=20
+      - SERVER_IDLE_TIMEOUT=60
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U neon_user || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: neon_orbit_postgres
+    environment:
+      POSTGRES_USER: neon_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: neon_orbit
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U neon_user -d neon_orbit"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: neon_orbit_redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

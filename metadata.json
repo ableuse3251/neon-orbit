@@ -1,0 +1,6 @@
+{
+  "name": "Neon Orbit — Retro Cosmic Tap",
+  "description": "Retro 80s synthwave arcade clicker Mini App for Telegram. High score, combo multipliers, cosmetic skins, and daily challenges.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
