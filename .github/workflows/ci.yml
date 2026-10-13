@@ -91,6 +91,11 @@ jobs:
           "
         shell: bash
 
+      - name: Run Database Migrations
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/neon_orbit_test
+        run: npx tsx server/scripts/run_migrations.ts
+
       - name: Run Unit & Integration Tests (PostgreSQL, Redis, Migrations, Economy, Auth, Payments)
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/neon_orbit_test
