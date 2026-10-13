@@ -65,7 +65,7 @@ jobs:
             fi
             echo "Waiting for PostgreSQL..."
             sleep 1
-          0
+          done
           echo "PostgreSQL startup timeout"
           exit 1
         shell: bash
