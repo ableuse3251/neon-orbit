@@ -23,6 +23,7 @@ describe('Telegram InitData Verification & Config Security Audit Tests', () => {
 
   beforeEach(() => {
     originalBotToken = config.botToken;
+    config.botToken = testBotToken;
   });
 
   afterEach(() => {
