@@ -15,7 +15,8 @@
     "test:smoke": "tsx staging-load-test.ts --mode=smoke",
     "test:load": "tsx staging-load-test.ts --mode=load",
     "audit": "npm audit --audit-level=high --omit=dev",
-    "check-all": "npm run typecheck && npm run test && npm run audit"
+    "check-all": "npm run typecheck && npm run test && npm run audit",
+    "migrate": "tsx server/scripts/run_migrations.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
