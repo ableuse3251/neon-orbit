@@ -58,16 +58,37 @@ jobs:
 
       - name: Wait for PostgreSQL to be ready
         run: |
-          for i in {1..30}; do
-            if pg_isready -h localhost -p 5432 -U postgres; then
-              echo "PostgreSQL is ready!"
-              exit 0
-            fi
-            echo "Waiting for PostgreSQL..."
-            sleep 1
-          done
-          echo "PostgreSQL startup timeout"
-          exit 1
+          node -e "
+          const net = require('net');
+          let attempts = 0;
+          function check() {
+            attempts++;
+            const client = new net.Socket();
+            client.setTimeout(2000);
+            client.connect(5432, 'localhost', () => {
+              console.log('PostgreSQL is ready!');
+              client.destroy();
+              process.exit(0);
+            });
+            client.on('error', () => {
+              client.destroy();
+              if (attempts > 30) {
+                console.error('PostgreSQL startup timeout');
+                process.exit(1);
+              }
+              setTimeout(check, 1000);
+            });
+            client.on('timeout', () => {
+              client.destroy();
+              if (attempts > 30) {
+                console.error('PostgreSQL startup timeout');
+                process.exit(1);
+              }
+              setTimeout(check, 1000);
+            });
+          }
+          check();
+          "
         shell: bash
 
       - name: Run Unit & Integration Tests (PostgreSQL, Redis, Migrations, Economy, Auth, Payments)
