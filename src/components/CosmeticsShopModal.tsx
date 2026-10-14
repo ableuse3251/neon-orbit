@@ -1,10 +1,22 @@
 import React, { useState } from 'react';
-import { X, Check, Lock, Sparkles, Rocket, Palette, Sparkle, Shield, Flame, Gift, Package } from 'lucide-react';
+import { X, Check, Lock, Sparkles, Shield, Package, Sparkle } from 'lucide-react';
 import { PlayerProfile, CosmeticCategory, Rarity, CosmeticItem } from '../types/game';
 import { COSMETIC_ITEMS, COSMETIC_COLLECTIONS, CosmeticCollection } from '../shared/cosmetics';
 import { triggerHaptic } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
 import { api } from '../utils/api';
+import {
+  ShipCategoryIcon,
+  TrailCategoryIcon,
+  BackdropCategoryIcon,
+  ExplosionCategoryIcon,
+  FrameCategoryIcon,
+  ThemeCategoryIcon,
+  TitleCategoryIcon,
+  MotionShipPreview,
+  StardustCrystalIcon,
+  TactileButton,
+} from './ui/Icons';
 
 interface CosmeticsShopModalProps {
   profile: PlayerProfile;
@@ -25,14 +37,19 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
   });
   const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
 
-  const categories: Array<{ id: CosmeticCategory; labelEn: string; labelRu: string; icon: string }> = [
-    { id: 'ship', labelEn: 'SHIPS', labelRu: 'КОРАБЛИ', icon: '🚀' },
-    { id: 'trail', labelEn: 'TRAILS', labelRu: 'СЛЕДЫ', icon: '✨' },
-    { id: 'backdrop', labelEn: 'BACKDROPS', labelRu: 'ФОНЫ', icon: '🌌' },
-    { id: 'explosion', labelEn: 'EXPLOSIONS', labelRu: 'ВЗРЫВЫ', icon: '💥' },
-    { id: 'frame', labelEn: 'FRAMES', labelRu: 'РАМКИ', icon: '🖼️' },
-    { id: 'theme', labelEn: 'THEMES', labelRu: 'ТЕМЫ', icon: '🎨' },
-    { id: 'title', labelEn: 'TITLES', labelRu: 'ТИТУЛЫ', icon: '👑' },
+  const categories: Array<{
+    id: CosmeticCategory;
+    labelEn: string;
+    labelRu: string;
+    icon: React.ReactNode;
+  }> = [
+    { id: 'ship', labelEn: 'SHIPS', labelRu: 'КОРАБЛИ', icon: <ShipCategoryIcon size={18} /> },
+    { id: 'trail', labelEn: 'TRAILS', labelRu: 'СЛЕДЫ', icon: <TrailCategoryIcon size={18} /> },
+    { id: 'backdrop', labelEn: 'BACKDROPS', labelRu: 'ФОНЫ', icon: <BackdropCategoryIcon size={18} /> },
+    { id: 'explosion', labelEn: 'EXPLOSIONS', labelRu: 'ВЗРЫВЫ', icon: <ExplosionCategoryIcon size={18} /> },
+    { id: 'frame', labelEn: 'FRAMES', labelRu: 'РАМКИ', icon: <FrameCategoryIcon size={18} /> },
+    { id: 'theme', labelEn: 'THEMES', labelRu: 'ТЕМЫ', icon: <ThemeCategoryIcon size={18} /> },
+    { id: 'title', labelEn: 'TITLES', labelRu: 'ТИТУЛЫ', icon: <TitleCategoryIcon size={18} /> },
   ];
 
   const getRarityBadge = (rarity: Rarity) => {
@@ -80,19 +97,17 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
       triggerHaptic('error');
       return;
     }
-
     setLoadingItemId(item.id);
     try {
       const res = await api.buyItem(item.id);
       triggerHaptic('success');
       const updated: PlayerProfile = {
         ...profile,
-        stardust: res.remainingStardust ?? (profile.stardust - item.priceStardust),
+        stardust: res.remainingStardust ?? profile.stardust - item.priceStardust,
         unlockedCosmetics: Array.from(new Set([...profile.unlockedCosmetics, item.id])),
       };
       onUpdateProfile(updated);
-    } catch (err) {
-      triggerHaptic('error');
+    } catch (err) {      triggerHaptic('error');
       console.warn('Shop purchase error:', err);
     } finally {
       setLoadingItemId(null);
@@ -105,7 +120,6 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
       await api.equipItem(item.category, item.id);
       triggerHaptic('selection');
       const updated: PlayerProfile = { ...profile };
-
       switch (item.category) {
         case 'ship':
           updated.selectedShip = item.id;
@@ -129,7 +143,6 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
           (updated as any).selectedTitle = item.id;
           break;
       }
-
       onUpdateProfile(updated);
     } catch (err) {
       triggerHaptic('error');
@@ -153,7 +166,6 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
       triggerHaptic('error');
       return;
     }
-
     setLoadingItemId(coll.id);
     try {
       for (const item of missingItems) {
@@ -181,22 +193,24 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-mono-tech select-none">
-      <div className="relative w-full max-w-lg bg-[#120a2e] border-2 border-[#9d4edd] rounded-2xl p-3.5 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-2.5 sm:gap-3 text-white max-h-[94vh] sm:max-h-[92vh]">
+      <div className="relative w-full max-w-lg bg-[#120a2e]/95 border-2 border-[#9d4edd] rounded-2xl p-3.5 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-2.5 sm:gap-3 text-white max-h-[94vh] sm:max-h-[92vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#9d4edd]/40 pb-2 sm:pb-2.5">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-[#00f5d4]" />
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-[#00f5d4] animate-pulse" />
             <h2 className="font-pixel text-[11px] sm:text-xs text-[#00f5d4] uppercase tracking-wider">
               {t.hangarTitle} (Dust Shop & Pilot Market)
             </h2>
           </div>
-
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 bg-[#210b42] px-3 py-1 rounded-full border border-[#ffb703]/50 text-[#ffb703] shadow-[0_0_10px_rgba(255,183,3,0.3)]">
-              <Sparkles className="w-3.5 h-3.5" />
+              <StardustCrystalIcon size={14} />
               <span className="font-pixel text-xs font-bold">{profile.stardust}</span>
             </div>
-            <button onClick={onClose} className="p-1 text-gray-400 hover:text-white">
+            <button
+              onClick={onClose}
+              className="p-1 text-gray-400 hover:text-white transition-colors"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -205,7 +219,10 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
         {/* Tab Switcher: Individual Items vs Collections / Sets */}
         <div className="flex gap-2 bg-[#0b071e] p-1 rounded-xl border border-[#9d4edd]/30 shrink-0">
           <button
-            onClick={() => { triggerHaptic('selection'); setActiveTab('shop'); }}
+            onClick={() => {
+              triggerHaptic('selection');
+              setActiveTab('shop');
+            }}
             className={`flex-1 py-1.5 rounded-lg font-pixel text-[10px] transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'shop'
                 ? 'bg-[#9d4edd] text-white font-bold shadow-[0_0_10px_#9d4edd]'
@@ -215,7 +232,10 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
             <Sparkle className="w-3.5 h-3.5" /> Individual Catalog (65+)
           </button>
           <button
-            onClick={() => { triggerHaptic('selection'); setActiveTab('collections'); }}
+            onClick={() => {
+              triggerHaptic('selection');
+              setActiveTab('collections');
+            }}
             className={`flex-1 py-1.5 rounded-lg font-pixel text-[10px] transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'collections'
                 ? 'bg-[#ff007f] text-white font-bold shadow-[0_0_10px_#ff007f]'
@@ -228,7 +248,7 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
 
         {activeTab === 'shop' ? (
           <>
-            {/* 7 Category Tabs */}
+            {/* 7 Category Tabs with Custom Modern Vector Icons */}
             <div className="grid grid-cols-7 gap-1 bg-[#0b071e] p-1 rounded-xl border border-[#9d4edd]/30 shrink-0 overflow-x-auto">
               {categories.map((cat) => (
                 <button
@@ -239,13 +259,13 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                     const first = COSMETIC_ITEMS.find((i) => i.category === cat.id);
                     if (first) setSelectedPreviewItem(first);
                   }}
-                  className={`py-1 sm:py-1.5 rounded-lg flex flex-col items-center justify-center gap-0.5 text-[8px] font-pixel transition-all ${
+                  className={`py-1.5 rounded-lg flex flex-col items-center justify-center gap-1 text-[8px] font-pixel transition-all ${
                     activeCategory === cat.id
-                      ? 'bg-[#00f5d4] text-[#0b071e] font-bold shadow-[0_0_10px_#00f5d4]'
+                      ? 'bg-[#00f5d4] text-[#0b071e] font-bold shadow-[0_0_12px_#00f5d4]'
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  <span className="text-xs sm:text-sm">{cat.icon}</span>
+                  {cat.icon}
                   <span className="hidden sm:inline">
                     {profile.lang === 'ru' ? cat.labelRu : cat.labelEn}
                   </span>
@@ -254,36 +274,36 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
             </div>
 
             {/* Fitting Room Interactive Live Preview Window */}
-            <div className="relative w-full h-24 sm:h-28 rounded-xl bg-[#0b071e] border-2 border-[#9d4edd]/50 flex items-center justify-center overflow-hidden p-2.5 sm:p-3 shadow-inner shrink-0">
+            <div className="relative w-full h-28 sm:h-32 rounded-xl bg-[#0b071e] border-2 border-[#9d4edd]/50 flex items-center justify-between overflow-hidden p-3 shadow-inner shrink-0">
               <div
-                className="absolute inset-0 opacity-30 animate-pulse"
+                className="absolute inset-0 opacity-20 animate-pulse"
                 style={{
                   background: `radial-gradient(circle, ${selectedPreviewItem.previewColor} 0%, transparent 75%)`,
                 }}
               />
 
-              <div className="relative flex items-center gap-3 sm:gap-4 z-10 w-full justify-center">
-                <div
-                  className="w-13 h-13 sm:w-16 sm:h-16 rounded-xl border-2 flex items-center justify-center text-2xl sm:text-3xl shadow-[0_0_20px_rgba(255,255,255,0.3)] shrink-0 animate-bounce"
-                  style={{
-                    borderColor: selectedPreviewItem.previewColor,
-                    backgroundColor: `${selectedPreviewItem.previewColor}30`,
-                  }}
-                >
-                  {selectedPreviewItem.iconSymbol}
+              <div className="relative flex items-center gap-3 z-10 w-full">
+                {/* 3D Motion Ship Previewer */}
+                <div className="shrink-0">
+                  <MotionShipPreview
+                    shipId={selectedPreviewItem.id}
+                    color={selectedPreviewItem.previewColor}
+                    accentColor={selectedPreviewItem.accentColor}
+                    size={90}
+                  />
                 </div>
 
-                <div className="flex flex-col min-w-0">
+                <div className="flex flex-col min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-pixel text-xs sm:text-sm text-white truncate">
                       {profile.lang === 'ru' ? selectedPreviewItem.nameRu : selectedPreviewItem.nameEn}
                     </span>
                   </div>
-                  <span className="text-[9px] sm:text-[10px] text-gray-300 max-w-[220px] mt-0.5 font-mono-tech leading-tight line-clamp-2">
+                  <span className="text-[9px] text-gray-300 font-mono-tech mt-0.5 line-clamp-2">
                     {profile.lang === 'ru' ? selectedPreviewItem.descRu : selectedPreviewItem.descEn}
                   </span>
 
-                  <div className="mt-1.5 flex items-center gap-2">
+                  <div className="mt-2 flex items-center gap-2">
                     <span
                       className={`text-[8px] font-pixel px-2 py-0.5 rounded border uppercase ${
                         getRarityBadge(selectedPreviewItem.rarity).bg
@@ -292,7 +312,7 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                       {selectedPreviewItem.rarity}
                     </span>
                     <span className="text-[8px] text-[#00f5d4] font-pixel animate-pulse">
-                      ⚡ Fitting Room Preview Active
+                      ⚡ Click ship for plasma test fire
                     </span>
                   </div>
                 </div>
@@ -322,11 +342,17 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg p-1.5 rounded-lg bg-[#210b42] border border-[#9d4edd]/30">
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-xs border"
+                          style={{
+                            backgroundColor: `${item.previewColor}20`,
+                            borderColor: item.previewColor,
+                          }}
+                        >
                           {item.iconSymbol}
-                        </span>
+                        </div>
                         <div className="flex flex-col min-w-0">
-                          <span className="font-pixel text-[10px] text-white truncate max-w-[120px]">
+                          <span className="font-pixel text-[10px] text-white truncate max-w-[110px]">
                             {name}
                           </span>
                           <span className={`text-[7px] font-pixel ${rarityInfo.color}`}>
@@ -379,7 +405,6 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
             <p className="text-[10px] text-gray-300 font-mono-tech px-1">
               Complete set bundles with a <span className="text-[#00f5d4] font-bold">15%–20% discount</span>. All unlocked items automatically sync!
             </p>
-
             {COSMETIC_COLLECTIONS.map((coll) => {
               const missingIds = coll.itemIds.filter((id) => !profile.unlockedCosmetics.includes(id));
               const missingItems = COSMETIC_ITEMS.filter((i) => missingIds.includes(i.id));
@@ -395,7 +420,7 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">🎁</span>
+                      <Package className="w-5 h-5 text-[#ffb703]" />
                       <div>
                         <h3 className="font-pixel text-xs text-white">
                           {profile.lang === 'ru' ? coll.nameRu : coll.nameEn}

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Check, Gift, Sparkles, Clock, ShieldCheck } from 'lucide-react';
+import { X, Calendar, Check, Gift, Clock, ShieldCheck } from 'lucide-react';
 import { PlayerProfile } from '../types/game';
 import { triggerHaptic } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
+import { DailyChest3DIcon, DailyStreakIcon, StardustCrystalIcon } from './ui/Icons';
 
 interface DailyStreakModalProps {
   profile: PlayerProfile;
@@ -18,14 +19,14 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
   const t = getTranslation(profile.lang);
   const isRu = profile.lang === 'ru';
   const [isClaiming, setIsClaiming] = useState(false);
-
   const todayStr = new Date().toISOString().split('T')[0];
+
   const isClaimedToday = Boolean(
     profile.isDailyRewardClaimedToday || (profile.lastDailyClaimDate && profile.lastDailyClaimDate === todayStr)
   );
 
-  // Live countdown to next 00:00:00 UTC
   const [timeLeft, setTimeLeft] = useState('');
+
   useEffect(() => {
     const calculateTimeLeft = () => {
       const now = new Date();
@@ -38,26 +39,20 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
         `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
       );
     };
-
     calculateTimeLeft();
     const interval = setInterval(calculateTimeLeft, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Determine current target day
-  // If already claimed today: user claimed up to profile.streakDays
-  // If not claimed today: user is about to claim day (profile.streakDays + 1) or day 1 if streak is 0
   const activeStreak = profile.streakDays || 0;
   const targetDay = isClaimedToday
     ? Math.max(1, Math.min(30, activeStreak))
     : Math.min(30, activeStreak + 1);
 
-  // Calculate today reward amount
   let todayReward = 20 + targetDay * 10;
   if (targetDay % 5 === 0) todayReward += 150;
   if (targetDay === 30) todayReward = 2000;
 
-  // Generate 30 days reward layout
   const days = Array.from({ length: 30 }, (_, index) => {
     const dayNum = index + 1;
     const isMilestone = dayNum % 5 === 0;
@@ -66,9 +61,6 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
     if (isMilestone) stardust += 150;
     if (isDay30) stardust = 2000;
 
-    // A day is considered claimed if:
-    // - User has claimed today AND dayNum <= activeStreak
-    // - User hasn't claimed today AND dayNum <= activeStreak
     const isClaimed = isClaimedToday ? dayNum <= activeStreak : dayNum <= activeStreak && dayNum < targetDay;
     const isCurrentTarget = !isClaimedToday && dayNum === targetDay;
     const isClaimedJustToday = isClaimedToday && dayNum === activeStreak;
@@ -87,22 +79,20 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
   const handleClaim = async () => {
     if (isClaimedToday || isClaiming) return;
     setIsClaiming(true);
-    try {
-      triggerHaptic('success');
+    try {      triggerHaptic('success');
       await onClaimReward();
-    } finally {
-      setIsClaiming(false);
+    } finally {      setIsClaiming(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-mono-tech select-none">
-      <div className="relative w-full max-w-md bg-[#120a2e] border-2 border-[#9d4edd] rounded-2xl p-4 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-3.5 text-white max-h-[94vh] sm:max-h-[88vh]">
+      <div className="relative w-full max-w-md bg-[#120a2e]/95 border-2 border-[#9d4edd] rounded-2xl p-4 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-3.5 text-white max-h-[94vh] sm:max-h-[88vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#9d4edd]/40 pb-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-[#ffb703]/20 border border-[#ffb703]/40">
-              <Calendar className="w-4 h-4 text-[#ffb703]" />
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-[#ff007f]/20 border border-[#ff007f]/40">
+              <DailyStreakIcon size={20} />
             </div>
             <div>
               <h2 className="font-pixel text-xs text-[#00f5d4] uppercase tracking-wider">
@@ -115,25 +105,26 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-[#210b42] text-gray-400 hover:text-white hover:bg-[#341266] transition-colors"
+            className="p-1.5 rounded-lg bg-[#210b42] text-gray-400 hover:text-white border border-[#9d4edd]/30 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Status Banner */}
-        <div className="bg-[#0b071e] border border-[#9d4edd]/30 rounded-xl p-3 flex items-center justify-between">
+        <div className="bg-[#0b071e] border border-[#9d4edd]/40 rounded-xl p-3 flex items-center justify-between shadow-sm">
           <div className="flex flex-col text-left">
-            <span className="text-[11px] text-gray-400 uppercase tracking-wider">
+            <span className="text-[10px] text-gray-400 uppercase tracking-wider font-pixel">
               {t.currentStreak}:
             </span>
-            <span className="font-pixel text-lg text-[#ffb703] text-glow-amber font-bold">
-              🔥 {activeStreak} {t.daysInRow}
+            <span className="font-pixel text-base sm:text-lg text-[#ffb703] font-bold flex items-center gap-1.5 mt-0.5">
+              <DailyStreakIcon size={18} /> {activeStreak} {t.daysInRow}
             </span>
           </div>
+
           <div className="flex flex-col items-end gap-1">
-            <div className="px-2.5 py-1 rounded-full bg-[#210b42] border border-[#00f5d4]/60 text-[#00f5d4] font-pixel text-[11px] flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3" />
+            <div className="px-2.5 py-1 rounded-full bg-[#210b42] border border-[#00f5d4]/60 text-[#00f5d4] font-pixel text-[10px] flex items-center gap-1.5">
+              <StardustCrystalIcon size={12} />
               <span>{isRu ? 'Награды за вход' : 'Daily Login'}</span>
             </div>
             {profile.hasStreakInsurance && (
@@ -175,17 +166,17 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
               </div>
 
               {/* Status Icon */}
-              <div className="my-1">
+              <div className="my-1.5 flex items-center justify-center">
                 {item.isClaimed ? (
                   <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/60 flex items-center justify-center">
                     <Check className="w-3 h-3 text-emerald-400 stroke-[3]" />
                   </div>
                 ) : item.isDay30 ? (
-                  <span className="text-base">👑</span>
+                  <DailyChest3DIcon size={24} />
                 ) : item.isMilestone ? (
                   <Gift className="w-4 h-4 text-[#ffb703]" />
                 ) : (
-                  <Sparkles className={`w-3.5 h-3.5 ${item.isCurrentTarget ? 'text-[#00f5d4]' : 'text-gray-500'}`} />
+                  <StardustCrystalIcon size={14} color={item.isCurrentTarget ? '#00f5d4' : '#ffb703'} />
                 )}
               </div>
 
@@ -202,12 +193,12 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
             <div className="space-y-2">
               <button
                 disabled={true}
-                className="w-full py-3.5 bg-slate-900/90 border border-emerald-500/40 text-emerald-400 font-pixel text-xs rounded-xl flex items-center justify-center gap-2 cursor-not-allowed shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                className="w-full py-3 bg-slate-900/90 border border-emerald-500/40 text-emerald-400 font-pixel text-xs rounded-xl flex items-center justify-center gap-2 cursor-not-allowed shadow-[0_0_12px_rgba(16,185,129,0.15)]"
               >
                 <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />
                 <span>{isRu ? '✓ НАГРАДА НА СЕГОДНЯ ПОЛУЧЕНА' : '✓ REWARD CLAIMED TODAY'}</span>
               </button>
-              <div className="bg-[#0b071e]/80 border border-white/10 rounded-lg p-2 text-center flex items-center justify-center gap-2 text-xs font-mono">
+              <div className="bg-[#0b071e]/80 border border-white/10 rounded-xl p-2 text-center flex items-center justify-center gap-2 text-xs font-mono">
                 <Clock className="w-3.5 h-3.5 text-[#ffb703]" />
                 <span className="text-gray-300">
                   {isRu ? 'Следующая награда через:' : 'Next reward in:'}

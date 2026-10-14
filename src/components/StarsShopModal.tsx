@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { X, Star, Shield, Check, Loader2 } from 'lucide-react';
+import { X, Shield, Check, Loader2 } from 'lucide-react';
 import { PlayerProfile } from '../types/game';
 import { STARS_CATALOG, StarsCatalogItem } from '../shared/stars-catalog';
 import { triggerHaptic, getTelegramApp } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
 import { api } from '../utils/api';
+import { StarXtrIcon } from './ui/Icons';
 
 interface StarsShopModalProps {
   profile: PlayerProfile;
@@ -27,24 +28,16 @@ export const StarsShopModal: React.FC<StarsShopModalProps> = ({
     triggerHaptic('medium');
     setLoadingItemId(item.id);
     setErrorMessage(null);
-
     try {
-      // 1. Request official invoice link from backend (which uses server catalog)
       const res = await api.createInvoice(item.id);
-
       const app = getTelegramApp();
-
       if (res && res.success && res.invoiceUrl && app?.openInvoice) {
-        // 2. Open official Telegram Stars native bottom-sheet invoice
         app.openInvoice(res.invoiceUrl, async (status: string) => {
           setLoadingItemId(null);
           if (status === 'paid') {
             triggerHaptic('success');
             setVerifyingPayment(true);
-
-            // Re-fetch /api/auth/session without local item granting
             await onPaymentSuccess();
-
             setVerifyingPayment(false);
             setSuccessItem(item);
           } else if (status === 'cancelled') {
@@ -75,19 +68,21 @@ export const StarsShopModal: React.FC<StarsShopModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-mono-tech select-none">
-      <div className="relative w-full max-w-md bg-[#120a2e] border-2 border-[#ffb703] rounded-2xl p-3.5 sm:p-5 shadow-[0_0_35px_rgba(255,183,3,0.35)] flex flex-col gap-3 sm:gap-4 text-white max-h-[94vh] sm:max-h-[90vh]">
+  return (    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-mono-tech select-none">
+      <div className="relative w-full max-w-md bg-[#120a2e]/95 border-2 border-[#ffb703] rounded-2xl p-4 sm:p-5 shadow-[0_0_35px_rgba(255,183,3,0.35)] flex flex-col gap-3.5 sm:gap-4 text-white max-h-[94vh] sm:max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#ffb703]/40 pb-2.5 sm:pb-3 shrink-0">
+        <div className="flex items-center justify-between border-b border-[#ffb703]/40 pb-2.5 shrink-0">
           <div className="flex items-center gap-2">
-            <Star className="w-4 h-4 sm:w-5 sm:h-5 text-[#ffb703] fill-[#ffb703]" />
+            <StarXtrIcon size={20} />
             <h2 className="font-pixel text-[11px] sm:text-xs text-[#ffb703] uppercase tracking-wider">
               Telegram Stars Store (XTR)
             </h2>
           </div>
-          <button onClick={onClose} className="p-1 rounded bg-[#210b42] text-gray-400 hover:text-white">
-            <X className="w-4 h-4 sm:w-5 sm:h-5" />
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg bg-[#210b42] text-gray-400 hover:text-white border border-[#ffb703]/30 transition-colors"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -159,7 +154,7 @@ export const StarsShopModal: React.FC<StarsShopModalProps> = ({
                 <button
                   disabled={isLoading || isProtected || verifyingPayment}
                   onClick={() => handleBuyWithStars(item)}
-                  className={`px-3 py-2 rounded-lg font-pixel text-xs font-bold shrink-0 flex items-center gap-1.5 transition-all ${
+                  className={`px-3 py-2 rounded-xl font-pixel text-xs font-bold shrink-0 flex items-center gap-1.5 transition-all ${
                     isProtected
                       ? 'bg-gray-800 text-gray-400 border border-gray-700'
                       : 'bg-[#ffb703] text-[#0b071e] hover:bg-[#ffb703]/90 shadow-[0_0_12px_#ffb703]'
@@ -171,7 +166,7 @@ export const StarsShopModal: React.FC<StarsShopModalProps> = ({
                     <span><Check className="w-3.5 h-3.5 inline" /> ACTIVE</span>
                   ) : (
                     <>
-                      <Star className="w-3.5 h-3.5 fill-current" />
+                      <StarXtrIcon size={14} color="#0b071e" glowColor="" />
                       <span>{item.priceStars} XTR</span>
                     </>
                   )}
@@ -182,7 +177,7 @@ export const StarsShopModal: React.FC<StarsShopModalProps> = ({
         </div>
 
         {/* Fair Play Banner */}
-        <div className="p-2.5 rounded-lg bg-[#0b071e] border border-[#ffb703]/20 flex items-center justify-center gap-2 text-[10px] text-gray-400 text-center font-mono-tech">
+        <div className="p-2.5 rounded-xl bg-[#0b071e] border border-[#ffb703]/20 flex items-center justify-center gap-2 text-[10px] text-gray-400 text-center font-mono-tech">
           <Shield className="w-3.5 h-3.5 text-[#ffb703]" />
           <span>Cosmetics & convenience only. Zero score or rating impact!</span>
         </div>

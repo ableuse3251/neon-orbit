@@ -1,4 +1,4 @@
-import { OrbitRocketIcon, DailyStreakIcon, QuestsTargetIcon } from "./components/ui/Icons";
+import { OrbitRocketIcon, DailyStreakIcon, QuestsTargetIcon, MotionShipPreview } from "./components/ui/Icons";
 import { RegistrationModal } from "./components/RegistrationModal";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Play, Flame, Award, Sparkles, Star, Users, ShieldCheck, Share2 } from 'lucide-react';
@@ -677,15 +677,8 @@ export default function App() {
               onClick={() => openModal('shop')}
               className="flex flex-col items-center cursor-pointer group my-1 sm:my-auto active:scale-95 transition-transform"
             >
-              <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-[#120a2e]/90 border-2 border-[#00f5d4] flex items-center justify-center shadow-[0_0_20px_rgba(0,245,212,0.4)] group-hover:shadow-[0_0_30px_rgba(0,245,212,0.8)] group-hover:border-white transition-all">
-                <svg viewBox="0 0 24 24" className="w-12 h-12 sm:w-14 sm:h-14 drop-shadow-[0_0_12px_#00f5d4]">
-                  <polygon
-                    points="12,2 22,22 12,17 2,22"
-                    fill={currentShip.color || '#00F5D4'}
-                    stroke={currentShip.accentColor || '#9D4EDD'}
-                    strokeWidth="2"
-                  />
-                </svg>
+              <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-[#120a2e]/90 border-2 border-[#00f5d4] flex items-center justify-center shadow-[0_0_20px_rgba(0,245,212,0.4)] group-hover:shadow-[0_0_30px_rgba(0,245,212,0.8)] group-hover:border-white transition-all overflow-hidden p-1">
+                <MotionShipPreview shipId={profile.selectedShip} color={currentShip.color || "#00f5d4"} accentColor={currentShip.accentColor || "#ff007f"} size={90} />
               </div>
               <span className="font-pixel text-[10px] sm:text-[11px] text-[#00f5d4] tracking-wide mt-1">
                 {t.equipped}: {shipName.toUpperCase()}

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { X, Award, Check, Lock, Sparkles, Trophy } from 'lucide-react';
+import { X, Check, Lock, Sparkles, Trophy } from 'lucide-react';
 import { PlayerProfile } from '../types/game';
 import { ACHIEVEMENTS_LIST, getAchievementProgress } from '../utils/progression';
 import { triggerHaptic } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
+import { StardustCrystalIcon } from './ui/Icons';
 
 interface AchievementsModalProps {
   profile: PlayerProfile;
@@ -41,12 +42,12 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-mono-tech select-none">
-      <div className="relative w-full max-w-lg bg-[#120a2e] border-2 border-[#9d4edd] rounded-2xl p-4 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-3.5 text-white max-h-[94vh] sm:max-h-[88vh]">
+      <div className="relative w-full max-w-lg bg-[#120a2e]/95 border-2 border-[#9d4edd] rounded-2xl p-4 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-3.5 text-white max-h-[94vh] sm:max-h-[88vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#9d4edd]/40 pb-3 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-[#9d4edd]/20 border border-[#9d4edd]/50 shadow-[0_0_12px_rgba(157,78,221,0.3)]">
-              <Trophy className="w-5 h-5 text-[#00f5d4]" />
+              <Trophy className="w-5 h-5 text-[#00f5d4] animate-bounce" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -66,7 +67,7 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-[#210b42] text-gray-400 hover:text-white hover:bg-[#341266] transition-colors"
+            className="p-1.5 rounded-lg bg-[#210b42] text-gray-400 hover:text-white border border-[#9d4edd]/30 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -129,7 +130,9 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({
                       </span>
                       <span className="text-[11px] text-gray-300 mt-0.5 leading-tight">{desc}</span>
                       <div className="flex items-center gap-2 mt-1.5 text-[9px] font-pixel text-[#ffb703]">
-                        <span>+{ach.rewardStardust} 🌟 Stardust</span>
+                        <span className="flex items-center gap-1">
+                          <StardustCrystalIcon size={12} /> +{ach.rewardStardust} Dust
+                        </span>
                         <span>+{ach.rewardXp} XP</span>
                       </div>
                     </div>
@@ -164,7 +167,7 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({
                   </div>
                 </div>
 
-                {/* Progress Bar (if not claimed) */}
+                {/* Progress Bar */}
                 {!prog.isClaimed && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[9px] font-mono text-gray-400">
