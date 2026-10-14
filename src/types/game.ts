@@ -168,6 +168,8 @@ export interface PlayerProfile {
   isDemo?: boolean;
   isShadowBanned?: boolean;
   hideFromLeaderboard?: boolean;
+  avatarUrl?: string;
+  isRegistered?: boolean;
 
   selectedShip: string;
   selectedTrail: string;
@@ -283,6 +285,7 @@ export interface LeaderboardEntry {
   score: number;
   rankTitle: string;
   isCurrentUser?: boolean;
+  avatarUrl?: string;
 }
 
 export interface ChallengeData {

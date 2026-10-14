@@ -181,9 +181,12 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                     {entry.rank}
                   </span>
 
+                  {entry.avatarUrl && (
+                    <img src={entry.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover border border-[#00f5d4] shrink-0" />
+                  )}
                   <div className="flex flex-col min-w-0">
                     <span className="font-bold text-white flex items-center gap-1 truncate">
-                      {entry.firstName}
+                      {entry.username || entry.firstName}
                       {(entry.isCurrentUser || String(entry.userId) === String(currentUserId)) && (
                         <span className="text-[9px] text-[#00f5d4] font-pixel shrink-0">({t.youBadge})</span>
                       )}

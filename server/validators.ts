@@ -126,3 +126,27 @@ export const analyticsBatchSchema = z.object({
   ).min(1).max(50),
 });
 
+
+// 8. Registration & Profile Schemas
+export const checkNicknameSchema = z.object({
+  nickname: z
+    .string()
+    .trim()
+    .min(2, "Никнейм должен быть не менее 2 символов")
+    .max(20, "Никнейм не должен превышать 20 символов")
+    .regex(/^[a-zA-Z0-9а-яА-ЯёЁ_ -]+$/, "Никнейм может содержать только буквы (RU/EN), цифры, пробел и подчёркивание"),
+});
+
+export const registerUserSchema = z.object({
+  nickname: z
+    .string()
+    .trim()
+    .min(2, "Никнейм должен быть не менее 2 символов")
+    .max(20, "Никнейм не должен превышать 20 символов")
+    .regex(/^[a-zA-Z0-9а-яА-ЯёЁ_ -]+$/, "Никнейм может содержать только буквы (RU/EN), цифры, пробел и подчёркивание"),
+  avatarUrl: z.string().max(250000).optional(),
+});
+
+export const updateAvatarSchema = z.object({
+  avatarUrl: z.string().min(1, "Avatar URL/data required").max(250000),
+});

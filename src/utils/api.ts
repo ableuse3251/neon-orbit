@@ -15,6 +15,8 @@ export interface UserSessionData {
     referralsCount: number;
     hasStreakInsurance?: boolean;
     hideFromLeaderboard?: boolean;
+    avatarUrl?: string;
+    isRegistered?: boolean;
   };
   wallet: {
     stardust: number;
@@ -47,6 +49,7 @@ export interface LeaderboardEntry {
   score: number;
   rankTitle: string;
   isCurrentUser: boolean;
+  avatarUrl?: string;
 }
 
 export interface LeaderboardResponse {
@@ -134,6 +137,27 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
 }
 
 export const api = {
+  async checkNickname(nickname: string) {
+    return fetchApi<{ available: boolean; reason?: string; error?: string }>("/api/user/nickname/check", {
+      method: "POST",
+      body: JSON.stringify({ nickname }),
+    });
+  },
+
+  async registerUser(data: { nickname: string; avatarUrl?: string }) {
+    return fetchApi<{ success: boolean; username: string; avatarUrl?: string; isRegistered: boolean; error?: string }>("/api/user/register", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateAvatar(avatarUrl: string) {
+    return fetchApi<{ success: boolean; avatarUrl: string; error?: string }>("/api/user/avatar", {
+      method: "POST",
+      body: JSON.stringify({ avatarUrl }),
+    });
+  },
+
   async getSession(): Promise<UserSessionData> {
     return fetchApi<UserSessionData>('/api/auth/session');
   },

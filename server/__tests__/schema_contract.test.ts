@@ -28,7 +28,7 @@ describe('SQL Schema Contracts & Migration Integration Tests (F27 / SQL Audit)',
     const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
     expect(files.length).toBeGreaterThanOrEqual(19);
     expect(files[0]).toBe('001_initial_schema.sql');
-    expect(files[files.length - 1]).toBe('019_payments_reconciliation_queue.sql');
+    expect(files[files.length - 1]).toBe('020_user_registration_and_avatar.sql');
   });
 
   it('migration contract validates table and column definitions across SQL files', () => {
@@ -57,6 +57,7 @@ describe('SQL Schema Contracts & Migration Integration Tests (F27 / SQL Audit)',
     expect(allSql).toContain('notifications_enabled');
     expect(allSql).toContain('payment_id');
     expect(allSql).toContain('acquisition_count');
+    expect(allSql).toContain('avatar_url');
   });
 
     it('runMigrations executes sequential upgrade successfully with advisory locks', async () => {

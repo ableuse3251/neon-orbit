@@ -1,30 +1,31 @@
-import { useReducer, useMemo } from 'react';
+import { useReducer, useMemo } from "react";
 
 export type ModalType =
-  | 'profile'
-  | 'leaderboard'
-  | 'shop'
-  | 'starsShop'
-  | 'achievements'
-  | 'referrals'
-  | 'adminDashboard'
-  | 'challenge'
-  | 'streak'
-  | 'settings'
-  | 'privacy'
-  | 'seasonPass'
-  | 'dailyContent'
-  | 'viral';
+  | "profile"
+  | "leaderboard"
+  | "shop"
+  | "starsShop"
+  | "achievements"
+  | "referrals"
+  | "adminDashboard"
+  | "challenge"
+  | "streak"
+  | "settings"
+  | "privacy"
+  | "seasonPass"
+  | "dailyContent"
+  | "viral"
+  | "registration";
 
 type ModalState = {
   [K in ModalType]: boolean;
 };
 
 type ModalAction =
-  | { type: 'OPEN'; modal: ModalType }
-  | { type: 'CLOSE'; modal: ModalType }
-  | { type: 'CLOSE_ALL' }
-  | { type: 'TOGGLE'; modal: ModalType };
+  | { type: "OPEN"; modal: ModalType }
+  | { type: "CLOSE"; modal: ModalType }
+  | { type: "CLOSE_ALL" }
+  | { type: "TOGGLE"; modal: ModalType };
 
 const initialModalState: ModalState = {
   profile: false,
@@ -41,17 +42,18 @@ const initialModalState: ModalState = {
   seasonPass: false,
   dailyContent: false,
   viral: false,
+  registration: false,
 };
 
 function modalReducer(state: ModalState, action: ModalAction): ModalState {
   switch (action.type) {
-    case 'OPEN':
+    case "OPEN":
       return { ...state, [action.modal]: true };
-    case 'CLOSE':
+    case "CLOSE":
       return { ...state, [action.modal]: false };
-    case 'TOGGLE':
+    case "TOGGLE":
       return { ...state, [action.modal]: !state[action.modal] };
-    case 'CLOSE_ALL':
+    case "CLOSE_ALL":
       return { ...initialModalState };
     default:
       return state;
@@ -60,13 +62,12 @@ function modalReducer(state: ModalState, action: ModalAction): ModalState {
 
 export function useModalStore() {
   const [state, dispatch] = useReducer(modalReducer, initialModalState);
-
   const actions = useMemo(
     () => ({
-      open: (modal: ModalType) => dispatch({ type: 'OPEN', modal }),
-      close: (modal: ModalType) => dispatch({ type: 'CLOSE', modal }),
-      toggle: (modal: ModalType) => dispatch({ type: 'TOGGLE', modal }),
-      closeAll: () => dispatch({ type: 'CLOSE_ALL' }),
+      open: (modal: ModalType) => dispatch({ type: "OPEN", modal }),
+      close: (modal: ModalType) => dispatch({ type: "CLOSE", modal }),
+      toggle: (modal: ModalType) => dispatch({ type: "TOGGLE", modal }),
+      closeAll: () => dispatch({ type: "CLOSE_ALL" }),
     }),
     []
   );

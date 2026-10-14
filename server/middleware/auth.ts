@@ -151,10 +151,23 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   } else {
     // If invalid or missing, allow demo fallback in non-production environments or when devAuthBypass is enabled
     if (config.nodeEnv !== 'production' || config.devAuthBypass) {
-      userId = 888777666;
-      username = 'synthwave_star';
-      firstName = 'RetroPilot';
-      language = 'en';
+      if (initDataHeader && /user_?\d+/i.test(initDataHeader)) {
+        const match = initDataHeader.match(/user_?(\d+)/i);
+        if (match) {
+          userId = Number(match[1]);
+          username = `pilot_${userId}`;
+          firstName = `Pilot_${userId}`;
+        } else {
+          userId = 888777666;
+          username = "synthwave_star";
+          firstName = "RetroPilot";
+        }
+      } else {
+        userId = 888777666;
+        username = "synthwave_star";
+        firstName = "RetroPilot";
+      }
+      language = "en";
       isPremium = false;
       isDemo = true;
     } else {

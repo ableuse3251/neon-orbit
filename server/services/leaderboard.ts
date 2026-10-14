@@ -16,6 +16,7 @@ export interface LeaderboardUserEntry {
   score: number;
   rankTitle: string;
   isCurrentUser: boolean;
+  avatarUrl?: string;
 }
 
 export interface LeaderboardResponse {
@@ -233,7 +234,7 @@ export async function getLeaderboard(
     try {
       if (scope === 'daily') {
         const res = await query(
-          `SELECT u.id, u.username, u.first_name, MAX(r.score) as score
+          `SELECT u.id, u.username, u.first_name, u.avatar_url, MAX(r.score) as score
            FROM users u
            JOIN rounds r ON u.id = r.user_id
            WHERE r.status = 'submitted'
@@ -242,7 +243,7 @@ export async function getLeaderboard(
              AND u.is_banned = FALSE
              AND u.shadow_banned = FALSE
              AND u.hide_from_leaderboard = FALSE
-           GROUP BY u.id, u.username, u.first_name
+           GROUP BY u.id, u.username, u.first_name, u.avatar_url
            ORDER BY score DESC
            LIMIT 50`,
           []
@@ -250,7 +251,7 @@ export async function getLeaderboard(
         dbRows = res.rows;
       } else if (scope === 'friends') {
         const res = await query(
-          `SELECT u.id, u.username, u.first_name, MAX(r.score) as score
+          `SELECT u.id, u.username, u.first_name, u.avatar_url, MAX(r.score) as score
            FROM users u
            JOIN rounds r ON u.id = r.user_id
            WHERE r.status = 'submitted'
@@ -262,7 +263,7 @@ export async function getLeaderboard(
                OR u.id IN (SELECT invitee_id FROM referrals WHERE inviter_id = $1)
                OR u.id IN (SELECT inviter_id FROM referrals WHERE invitee_id = $1)
              )
-           GROUP BY u.id, u.username, u.first_name
+           GROUP BY u.id, u.username, u.first_name, u.avatar_url
            ORDER BY score DESC
            LIMIT 50`,
           [currentUserId]
@@ -270,7 +271,7 @@ export async function getLeaderboard(
         dbRows = res.rows;
       } else if (scope === 'chat' && options.chatId) {
         const res = await query(
-          `SELECT u.id, u.username, u.first_name, MAX(r.score) as score
+          `SELECT u.id, u.username, u.first_name, u.avatar_url, MAX(r.score) as score
            FROM users u
            JOIN rounds r ON u.id = r.user_id
            JOIN user_chats uc ON u.id = uc.user_id
@@ -279,7 +280,7 @@ export async function getLeaderboard(
              AND u.is_banned = FALSE
              AND u.shadow_banned = FALSE
              AND u.hide_from_leaderboard = FALSE
-           GROUP BY u.id, u.username, u.first_name
+           GROUP BY u.id, u.username, u.first_name, u.avatar_url
            ORDER BY score DESC
            LIMIT 50`,
           [options.chatId]
@@ -288,14 +289,14 @@ export async function getLeaderboard(
       } else {
         // Global scope
         const res = await query(
-          `SELECT u.id, u.username, u.first_name, MAX(r.score) as score
+          `SELECT u.id, u.username, u.first_name, u.avatar_url, MAX(r.score) as score
            FROM users u
            JOIN rounds r ON u.id = r.user_id
            WHERE r.status = 'submitted'
              AND u.is_banned = FALSE
              AND u.shadow_banned = FALSE
              AND u.hide_from_leaderboard = FALSE
-           GROUP BY u.id, u.username, u.first_name
+           GROUP BY u.id, u.username, u.first_name, u.avatar_url
            ORDER BY score DESC
            LIMIT 50`,
           []
@@ -319,6 +320,7 @@ export async function getLeaderboard(
       score: scoreVal,
       rankTitle: getRankTitle(scoreVal),
       isCurrentUser: userIdStr === currentUserIdStr,
+      avatarUrl: row.avatar_url || undefined,
     };
   });
 

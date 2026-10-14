@@ -1,3 +1,4 @@
+import { RegistrationModal } from "./components/RegistrationModal";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Play, Flame, Award, Sparkles, Star, Users, ShieldCheck, Share2 } from 'lucide-react';
 import { GameCanvas } from './components/GameCanvas';
@@ -163,8 +164,13 @@ export default function App() {
             isDailyRewardClaimedToday: effectiveClaimedToday,
             hasStreakInsurance: !!session.profile.hasStreakInsurance,
             hideFromLeaderboard: !!session.profile.hideFromLeaderboard,
+            avatarUrl: session.profile.avatarUrl || prev.avatarUrl,
+            isRegistered: Boolean(session.profile.isRegistered),
           };
           saveProfile(updated);
+          if (!session.profile.isRegistered) {
+            openModal('registration');
+          }
           return updated;
         });
       })
@@ -779,6 +785,26 @@ export default function App() {
       )}
 
       {/* Navigation Modals */}
+      {modals.registration && (
+        <RegistrationModal
+          profile={profile}
+          isOpen={modals.registration}
+          onClose={() => closeModal('registration')}
+          onRegistered={(updatedUsername, avatarUrl) => {
+            setProfile((prev) => {
+              const updated = {
+                ...prev,
+                username: updatedUsername,
+                avatarUrl: avatarUrl || prev.avatarUrl,
+                isRegistered: true,
+              };
+              saveProfile(updated);
+              return updated;
+            });
+            closeModal('registration');
+          }}
+        />
+      )}
       {modals.profile && (
         <ProfileModal
           profile={profile}
