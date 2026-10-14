@@ -14,6 +14,7 @@ import { config } from '../config.js';
 const router = Router();
 
 import { isGoldenHourActiveServer } from '../services/events.js';
+import { updateQuestProgressForRound } from '../services/dailyContent.js';
 
 const activeRoundsMemory = new Map<string, { seed: string; mode: string; startedAt: number }>();
 
@@ -367,6 +368,17 @@ const handleSubmitRound = async (req: Request, res: Response) => {
         } catch (lbErr) {
           console.error('Leaderboard update error after reward credit:', lbErr);
         }
+        try {
+          await updateQuestProgressForRound(user.id, {
+            score: confirmedScore,
+            maxCombo: evalResult?.maxCombo || 0,
+            hits: evalResult?.hits || 0,
+            goldenBeaconsHit: evalResult?.goldenBeaconsHit || 0,
+            isDailyChallenge: roundMode === 'daily',
+          });
+        } catch (lbErr) {
+          console.error('Leaderboard update error after reward credit:', lbErr);
+        }
       }
 
       return res.status(txResult.status).json(txResult.json);
@@ -427,6 +439,15 @@ const handleSubmitRound = async (req: Request, res: Response) => {
     } as any);
     earnedXp = rewards.earnedXp;
     earnedStardust = rewards.earnedStardust;
+    try {
+      await updateQuestProgressForRound(user.id, {
+        score: confirmedScore,
+        maxCombo: evalResult?.maxCombo || 0,
+        hits: evalResult?.hits || 0,
+        goldenBeaconsHit: evalResult?.goldenBeaconsHit || 0,
+        isDailyChallenge: (memRound?.mode || roundMode) === 'daily',
+      });
+    } catch (err) {}
     newLevel = getLevelFromXp(earnedXp).level;
     isLevelUp = newLevel > 1;
 

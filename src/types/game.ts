@@ -159,6 +159,10 @@ export interface PlayerProfile {
   highScore: number;
   dailyHighScore: number;
   totalRounds: number;
+  maxCombo?: number;
+  bestAccuracy?: number;
+  totalTargetsHit?: number;
+  goldenBeaconsHit?: number;
   rankTitle: 'Pilot' | 'Commander' | 'Fleet Admiral';
   isAdmin?: boolean;
   isDemo?: boolean;
@@ -288,3 +292,21 @@ export interface ChallengeData {
   targetSeed: string;
   expiresInSeconds: number;
 }
+
+export interface DailyQuest {
+  id: string;
+  title_en: string;
+  title_ru: string;
+  type: 'rounds' | 'score' | 'combo' | 'beacon' | 'targets' | 'daily_challenge' | 'invite';
+  target_value: number;
+  reward_dust: number;
+  reward_exp: number;
+}
+
+export interface UserDailyQuest extends DailyQuest {
+  progress: number;
+  is_completed: boolean;
+  is_claimed: boolean;
+  reset_date: string;
+}
+
