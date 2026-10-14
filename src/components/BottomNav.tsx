@@ -80,10 +80,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   ];
 
   return (
-    <nav className="w-full bg-[#0d0722]/95 border-t border-[#00f5d4]/30 backdrop-blur-xl z-30 font-mono-tech select-none shrink-0 pb-[max(0.4rem,env(safe-area-inset-bottom,0px))] shadow-[0_-8px_30px_rgba(0,0,0,0.6)]">
-      <div className="max-w-md mx-auto grid grid-cols-6 gap-0.5 px-1.5 py-1.5">
-        {tabs.map((tab) => {
+    <nav className="relative w-full bg-[#080417]/95 border-t border-[#00f5d4]/25 backdrop-blur-2xl z-30 font-mono-tech select-none shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] shadow-[0_-12px_40px_rgba(0,0,0,0.85)]">
+      {/* Top Subtle Beam Light Accent Line */}
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#00f5d4]/60 to-transparent pointer-events-none" />
 
+      <div className="max-w-md mx-auto grid grid-cols-6 gap-1 px-2 py-1.5">
+        {tabs.map((tab) => {
           const IconComponent = tab.icon;
           const isActive = activeModal === tab.id;
 
@@ -95,30 +97,44 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 triggerHaptic('selection');
                 onSelectTab(tab.id);
               }}
-              className={`relative flex flex-col items-center justify-center py-1.5 sm:py-2 px-0.5 rounded-xl transition-all duration-200 active:scale-95 ${
+              className={`relative flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 active:scale-95 group ${
                 isActive
-                  ? 'bg-[#1c0d38] text-[#00f5d4] shadow-[0_0_15px_rgba(0,245,212,0.35)] border border-[#00f5d4]/60'
+                  ? 'bg-gradient-to-b from-[#1b0c3f] to-[#12072e] text-[#00f5d4] shadow-[0_0_20px_rgba(0,245,212,0.3)] border border-[#00f5d4]/70'
                   : 'text-gray-400 hover:text-white border border-transparent hover:bg-white/5'
               }`}
             >
+              {/* Active Indicator Top Glow Line */}
+              {isActive && (
+                <div
+                  className="absolute -top-[1px] left-1/4 right-1/4 h-[2px] rounded-full shadow-[0_0_8px_currentColor]"
+                  style={{ backgroundColor: tab.color, color: tab.color }}
+                />
+              )}
+
               <div className="relative flex items-center justify-center">
                 <IconComponent
-                  size={20}
+                  size={21}
                   color={isActive ? tab.color : '#8e8a9f'}
                   glowColor={isActive ? tab.color : undefined}
-                  className={isActive ? 'scale-110' : 'opacity-80 hover:opacity-100'}
+                  className={`transition-transform duration-200 ${
+                    isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(0,245,212,0.8)]' : 'group-hover:scale-105 group-hover:opacity-100 opacity-80'
+                  }`}
                 />
 
                 {tab.badge !== undefined && (
-                  <span className="absolute -top-1.5 -right-2.5 bg-[#ff007f] text-white font-pixel text-[7px] px-1 py-0.2 rounded-full leading-tight shadow-[0_0_8px_#ff007f] font-bold">
+                  <span
+                    className={`absolute -top-2 -right-3 text-white font-pixel text-[7px] px-1.5 py-0.3 rounded-full leading-tight shadow-[0_0_10px_#ff007f] font-bold border border-black/80 ${
+                      tab.badge === '🎁' ? 'bg-[#ff007f] animate-bounce' : 'bg-gradient-to-r from-[#ff007f] to-[#9d4edd]'
+                    }`}
+                  >
                     {tab.badge}
                   </span>
                 )}
               </div>
 
               <span
-                className={`font-pixel text-[8px] sm:text-[9px] mt-1 tracking-tight truncate w-full text-center transition-colors ${
-                  isActive ? 'text-[#00f5d4] font-bold text-glow-cyan' : 'text-gray-400'
+                className={`font-pixel text-[8px] sm:text-[9px] mt-1 tracking-tight truncate w-full text-center transition-all ${
+                  isActive ? 'text-[#00f5d4] font-bold text-glow-cyan scale-105' : 'text-gray-400 group-hover:text-gray-200'
                 }`}
               >
                 {tab.label}
