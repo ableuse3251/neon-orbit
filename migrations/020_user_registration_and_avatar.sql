@@ -7,4 +7,4 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS is_registered BOOLEAN DEFAULT FALSE;
 -- Unique constraint on lowercase username for registered players
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_lower_unique 
   ON users (LOWER(username)) 
-  WHERE username IS NOT NULL AND username != "" AND is_registered = TRUE;
+  WHERE username IS NOT NULL AND username != '' AND is_registered = TRUE;
