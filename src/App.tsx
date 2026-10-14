@@ -763,6 +763,7 @@ export default function App() {
             onRetrySubmission={handleRetrySubmission}
             onRestart={() => handleStartRound(false, isDemoMode)}
             onOpenLeaderboard={() => openModal('leaderboard')}
+            onHome={() => setGameState('MENU')}
           />
         )}
       </div>

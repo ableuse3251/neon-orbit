@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { RotateCcw, Share2, Trophy, Award, Zap, Crosshair, RefreshCw, AlertTriangle, ShieldCheck, Gamepad2 } from 'lucide-react';
+import { RotateCcw, Share2, Trophy, Award, Zap, Crosshair, RefreshCw, AlertTriangle, ShieldCheck, Gamepad2, Home, X } from 'lucide-react';
 import { RoundStats, PlayerProfile } from '../types/game';
 import { shareChallengeLink, triggerHaptic } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
@@ -14,6 +14,7 @@ interface FlightLogModalProps {
   onRetrySubmission?: () => void;
   onRestart: () => void;
   onOpenLeaderboard: () => void;
+  onHome?: () => void;
 }
 
 export const FlightLogModal: React.FC<FlightLogModalProps> = ({
@@ -26,6 +27,7 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
   onRetrySubmission,
   onRestart,
   onOpenLeaderboard,
+  onHome,
 }) => {
   const t = getTranslation(profile.lang);
   const isNewRecord = !isDemo && stats.score > profile.highScore;
@@ -57,9 +59,24 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
               {t.flightLogTitle}
             </h2>
           </div>
-          <span className="text-[10px] text-gray-400 font-mono-tech">
-            {new Date().toLocaleTimeString()}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-gray-400 font-mono-tech">
+              {new Date().toLocaleTimeString()}
+            </span>
+            {onHome && (
+              <button
+                onClick={() => {
+                  triggerHaptic('light');
+                  onHome();
+                }}
+                className="p-1 text-gray-400 hover:text-[#00f5d4] hover:bg-white/10 rounded transition-all"
+                title={t.toMainMenu}
+                aria-label={t.toMainMenu}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Demo Mode Notice */}
@@ -219,6 +236,19 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
               <span>{t.leaderboardBtn}</span>
             </button>
           </div>
+
+          {onHome && (
+            <button
+              onClick={() => {
+                triggerHaptic('medium');
+                onHome();
+              }}
+              className="w-full py-2.5 px-4 bg-[#120a2e] border border-[#00f5d4]/50 text-gray-200 font-pixel text-xs rounded-lg hover:border-[#00f5d4] hover:text-white active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow"
+            >
+              <Home className="w-4 h-4 text-[#00f5d4]" />
+              <span>{t.toMainMenu}</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

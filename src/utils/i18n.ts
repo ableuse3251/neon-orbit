@@ -38,6 +38,7 @@ export const translations = {
     challengeFriend: 'CHALLENGE FRIEND',
     linkCopied: 'LINK COPIED!',
     leaderboardBtn: 'LEADERBOARD',
+    toMainMenu: 'MAIN MENU',
 
     // Leaderboards
     rankingsTitle: 'Pilot Rankings',
@@ -134,6 +135,7 @@ export const translations = {
     challengeFriend: 'ВЫЗВАТЬ ДРУГА',
     linkCopied: 'ССЫЛКА СКОПИРОВАНА!',
     leaderboardBtn: 'РЕЙТИНГ',
+    toMainMenu: 'В ГЛАВНОЕ МЕНЮ',
 
     // Leaderboards
     rankingsTitle: 'Таблица Лидеров',
