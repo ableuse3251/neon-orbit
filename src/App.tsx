@@ -1,3 +1,4 @@
+import { OrbitRocketIcon, DailyStreakIcon, QuestsTargetIcon } from "./components/ui/Icons";
 import { RegistrationModal } from "./components/RegistrationModal";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Play, Flame, Award, Sparkles, Star, Users, ShieldCheck, Share2 } from 'lucide-react';
@@ -713,17 +714,17 @@ export default function App() {
 
               <button
                 onClick={() => handleStartRound(false, false)}
-                className="w-full py-3 sm:py-3.5 bg-[#00f5d4] text-[#0b071e] font-pixel text-xs sm:text-sm rounded-xl font-bold hover:bg-[#00f5d4]/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_#00f5d4]"
+                className="w-full py-3.5 sm:py-4 bg-[#00f5d4] text-[#0b071e] font-pixel text-xs sm:text-sm rounded-xl font-bold hover:bg-[#00f5d4]/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(0,245,212,0.6)] border border-[#00f5d4] group"
               >
-                <Play className="w-4 h-4 fill-current" />
+                <OrbitRocketIcon size={22} color="#0b071e" glowColor="#00f5d4" className="group-hover:scale-110 transition-transform" />
                 <span>{t.startRound}</span>
               </button>
 
               <button
                 onClick={() => handleStartRound(true, false)}
-                className="w-full py-2.5 bg-[#210b42] border-2 border-[#ff007f] text-white font-pixel text-[9px] sm:text-[10px] rounded-xl hover:border-[#00f5d4] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(255,0,127,0.4)]"
+                className="w-full py-2.5 bg-[#1f0a38] border-2 border-[#ff007f] text-white font-pixel text-[9px] sm:text-[10px] rounded-xl hover:border-[#00f5d4] hover:shadow-[0_0_20px_rgba(255,0,127,0.6)] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_0_12px_rgba(255,0,127,0.4)]"
               >
-                <Flame className="w-3.5 h-3.5 text-[#ff007f]" />
+                <DailyStreakIcon size={18} color="#ff007f" glowColor="#ff007f" />
                 <span>{t.dailyChallenge}</span>
               </button>
 
