@@ -119,31 +119,54 @@ export default function App() {
   useEffect(() => {
     api.getSession()
       .then((session) => {
-        setProfile((prev) => ({
-          ...prev,
-          id: String(session.profile.id),
-          username: session.profile.username || prev.username,
-          firstName: session.profile.firstName || prev.firstName,
-          lang: (session.profile.language === 'ru' ? 'ru' : 'en') as any,
-          isAdmin: session.profile.isAdmin,
-          isDemo: session.profile.isDemo,
-          level: session.wallet.level || prev.level,
-          xp: session.wallet.xp ?? prev.xp,
-          stardust: session.wallet.stardust ?? prev.stardust,
-          selectedShip: session.equipped.ship || prev.selectedShip,
-          selectedTrail: session.equipped.trail || prev.selectedTrail,
-          selectedBackdrop: session.equipped.backdrop || prev.selectedBackdrop,
-          selectedExplosion: session.equipped.explosion || prev.selectedExplosion,
-          selectedFrame: session.equipped.frame || prev.selectedFrame,
-          selectedTheme: session.equipped.theme || prev.selectedTheme,
-          unlockedCosmetics: session.inventory?.length ? session.inventory : prev.unlockedCosmetics,
-          unlockedAchievements: session.achievements || prev.unlockedAchievements,
-          referralsCount: session.profile.referralsCount ?? prev.referralsCount,
-          referralCode: session.profile.referralCode || prev.referralCode,
-          streakDays: session.dailyClaimStreak.streak || prev.streakDays,
-          hasStreakInsurance: !!session.profile.hasStreakInsurance,
-          hideFromLeaderboard: !!session.profile.hideFromLeaderboard,
-        }));
+        setProfile((prev) => {
+          const todayIso = new Date().toISOString().split("T")[0];
+          const serverStreak = Number(session.dailyClaimStreak?.streak || 0);
+          const serverClaimDate = session.dailyClaimStreak?.lastClaimDate || '';
+          const serverClaimedToday = Boolean(
+            session.dailyClaimStreak?.claimedToday ||
+            (serverClaimDate && serverClaimDate === todayIso)
+          );
+          const localClaimedToday = Boolean(
+            prev.isDailyRewardClaimedToday ||
+            (prev.lastDailyClaimDate && prev.lastDailyClaimDate === todayIso)
+          );
+          const effectiveClaimedToday = serverClaimedToday || localClaimedToday;
+          const effectiveStreak = serverStreak > 0 ? serverStreak : prev.streakDays;
+          const effectiveClaimDate = serverClaimedToday
+            ? serverClaimDate || todayIso
+            : (localClaimedToday ? todayIso : (serverClaimDate || prev.lastDailyClaimDate));
+
+          const updated = {
+            ...prev,
+            id: String(session.profile.id),
+            username: session.profile.username || prev.username,
+            firstName: session.profile.firstName || prev.firstName,
+            lang: (session.profile.language === 'ru' ? 'ru' : 'en') as any,
+            isAdmin: session.profile.isAdmin,
+            isDemo: session.profile.isDemo,
+            level: session.wallet.level || prev.level,
+            xp: session.wallet.xp ?? prev.xp,
+            stardust: session.wallet.stardust ?? prev.stardust,
+            selectedShip: session.equipped.ship || prev.selectedShip,
+            selectedTrail: session.equipped.trail || prev.selectedTrail,
+            selectedBackdrop: session.equipped.backdrop || prev.selectedBackdrop,
+            selectedExplosion: session.equipped.explosion || prev.selectedExplosion,
+            selectedFrame: session.equipped.frame || prev.selectedFrame,
+            selectedTheme: session.equipped.theme || prev.selectedTheme,
+            unlockedCosmetics: session.inventory?.length ? session.inventory : prev.unlockedCosmetics,
+            unlockedAchievements: session.achievements || prev.unlockedAchievements,
+            referralsCount: session.profile.referralsCount ?? prev.referralsCount,
+            referralCode: session.profile.referralCode || prev.referralCode,
+            streakDays: effectiveStreak,
+            lastDailyClaimDate: effectiveClaimDate,
+            isDailyRewardClaimedToday: effectiveClaimedToday,
+            hasStreakInsurance: !!session.profile.hasStreakInsurance,
+            hideFromLeaderboard: !!session.profile.hideFromLeaderboard,
+          };
+          saveProfile(updated);
+          return updated;
+        });
       })
       .catch((err) => {
         console.warn('Backend auth session check:', err?.message || err);
@@ -452,6 +475,11 @@ export default function App() {
   };
 
   const handleClaimDaily = async () => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (profile.isDailyRewardClaimedToday || profile.lastDailyClaimDate === todayStr) {
+      return;
+    }
+
     try {
       const res = await api.claimDaily();
       if (res && res.success) {
@@ -460,16 +488,65 @@ export default function App() {
             ...prev,
             stardust: prev.stardust + res.rewardStardust,
             streakDays: res.streak,
-            hasStreakInsurance: res.hasStreakInsurance,
+            hasStreakInsurance: res.hasStreakInsurance ?? prev.hasStreakInsurance,
+            lastDailyClaimDate: todayStr,
+            isDailyRewardClaimedToday: true,
           };
           saveProfile(updated);
           return updated;
         });
-        closeModal('streak');
       }
-    } catch (err) {
-      console.warn('Daily claim failed:', err);
-      closeModal('streak');
+    } catch (err: any) {
+      console.warn('Daily claim network/API call:', err);
+      if (err?.message === 'ALREADY_CLAIMED' || err?.status === 400) {
+        setProfile((prev) => {
+          const updated = {
+            ...prev,
+            lastDailyClaimDate: todayStr,
+            isDailyRewardClaimedToday: true,
+          };
+          saveProfile(updated);
+          return updated;
+        });
+        return;
+      }
+
+      // Offline / client fallback mode: guarantee single claim per day with reward
+      setProfile((prev) => {
+        if (prev.isDailyRewardClaimedToday || prev.lastDailyClaimDate === todayStr) {
+          return prev;
+        }
+
+        const yesterdayDate = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+        let newStreak = 1;
+        let consumedInsurance = false;
+
+        if (prev.lastDailyClaimDate === yesterdayDate) {
+          newStreak = Math.min(30, (prev.streakDays || 0) + 1);
+        } else if (prev.lastDailyClaimDate && prev.lastDailyClaimDate < yesterdayDate) {
+          if (prev.hasStreakInsurance) {
+            newStreak = Math.min(30, (prev.streakDays || 0) + 1);
+            consumedInsurance = true;
+          } else {
+            newStreak = 1;
+          }
+        }
+
+        let rewardStardust = 20 + newStreak * 10;
+        if (newStreak % 5 === 0) rewardStardust += 150;
+        if (newStreak === 30) rewardStardust = 2000;
+
+        const updated = {
+          ...prev,
+          stardust: prev.stardust + rewardStardust,
+          streakDays: newStreak,
+          hasStreakInsurance: consumedInsurance ? false : prev.hasStreakInsurance,
+          lastDailyClaimDate: todayStr,
+          isDailyRewardClaimedToday: true,
+        };
+        saveProfile(updated);
+        return updated;
+      });
     }
   };
 

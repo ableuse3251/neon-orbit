@@ -4,11 +4,18 @@ import { config } from './config.js';
 
 const { Pool } = pg;
 
+// Parse PostgreSQL DATE (OID 1082) as plain string YYYY-MM-DD to avoid timezone distortion
+pg.types.setTypeParser(1082, (val: string) => val);
+
 export let pool: pg.Pool | null = null;
 let isDbConnected = false;
 
 export function setDbConnected(connected: boolean) {
   isDbConnected = connected;
+}
+
+export function setPool(p: pg.Pool | null) {
+  pool = p;
 }
 
 if (config.databaseUrl) {

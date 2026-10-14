@@ -138,8 +138,10 @@ export const getInitialProfile = (telegramUser?: { id: number; first_name: strin
 
     hasStreakInsurance: false,
     starsBalance: 100,
-    streakDays: 1,
+    streakDays: 0,
     lastLoginDate: new Date().toISOString().split('T')[0],
+    lastDailyClaimDate: '',
+    isDailyRewardClaimedToday: false,
     lang: telegramUser?.language_code === 'ru' ? 'ru' : 'en',
     settings: {
       soundFx: true,
@@ -174,9 +176,11 @@ export const getInitialProfile = (telegramUser?: { id: number; first_name: strin
       selectedBackdrop: parsed.selectedBackdrop || 'backdrop_synth_grid',
       selectedExplosion: parsed.selectedExplosion || 'exp_retro_burst',
       selectedFrame: parsed.selectedFrame || 'frame_pilot_steel',
-      selectedTheme: parsed.selectedTheme || 'theme_classic_purple',
       unlockedCosmetics: parsed.unlockedCosmetics || defaultProfile.unlockedCosmetics,
       unlockedAchievements: parsed.unlockedAchievements || [],
+      streakDays: Number(parsed.streakDays || 0),
+      lastDailyClaimDate: parsed.lastDailyClaimDate || '',
+      isDailyRewardClaimedToday: Boolean(parsed.lastDailyClaimDate && parsed.lastDailyClaimDate === new Date().toISOString().split('T')[0]),
       settings: {
         ...defaultProfile.settings,
         ...(parsed.settings || {}),

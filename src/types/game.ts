@@ -188,6 +188,8 @@ export interface PlayerProfile {
   starsBalance: number;
   streakDays: number;
   lastLoginDate: string;
+  lastDailyClaimDate?: string;
+  isDailyRewardClaimedToday?: boolean;
   lang: Language;
   settings: {
     soundFx: boolean;

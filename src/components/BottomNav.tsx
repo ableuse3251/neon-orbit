@@ -46,7 +46,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       id: 'streak',
       label: isRu ? 'ДЕЙЛИ' : 'DAILY',
       icon: Calendar,
-      badge: `${profile.streakDays}d`,
+      badge: (profile.lastDailyClaimDate === new Date().toISOString().split('T')[0] || profile.isDailyRewardClaimedToday)
+        ? `${profile.streakDays}d`
+        : '🎁',
       color: '#ff007f',
     },
     {

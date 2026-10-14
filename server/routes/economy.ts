@@ -14,15 +14,92 @@ import {
 
 const router = Router();
 
+// Fallback in-memory tracking for development / mock mode
+export const mockDailyClaims = new Map<number, { lastClaimDate: string; streak: number }>();
+
+export function getMockDailyClaim(userId: number) {
+  return mockDailyClaims.get(userId);
+}
+
+export function setMockDailyClaim(userId: number, claim: { lastClaimDate: string; streak: number }) {
+  mockDailyClaims.set(userId, claim);
+}
+
+export function clearMockDailyClaims() {
+  mockDailyClaims.clear();
+}
+
+function getNextUtcReset() {
+  const now = new Date();
+  const nextReset = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
+  const msUntilReset = Math.max(0, nextReset.getTime() - now.getTime());
+  return { nextResetAt: nextReset.toISOString(), msUntilReset };
+}
+
+/**
+ * GET /api/daily/claim/status
+ * Check if the daily streak reward has been claimed today (UTC day)
+ */
+router.get('/daily/claim/status', requireAuth, async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const today = new Date().toISOString().split('T')[0];
+  const { nextResetAt, msUntilReset } = getNextUtcReset();
+
+  if (isDbActive() && pool) {
+    try {
+      const todayCheck = await query(
+        'SELECT streak, claim_date FROM daily_claims WHERE user_id = $1 AND claim_date = $2',
+        [userId, today]
+      );
+      const lastClaim = await query(
+        'SELECT streak, claim_date FROM daily_claims WHERE user_id = $1 ORDER BY claim_date DESC LIMIT 1',
+        [userId]
+      );
+      const claimedToday = todayCheck.rows.length > 0;
+      const currentStreak = Number(lastClaim.rows[0]?.streak || (claimedToday ? 1 : 0));
+      return res.json({
+        success: true,
+        claimedToday,
+        canClaim: !claimedToday,
+        streak: currentStreak,
+        lastClaimDate: lastClaim.rows[0]?.claim_date
+          ? (typeof lastClaim.rows[0].claim_date === 'string'
+              ? lastClaim.rows[0].claim_date.split('T')[0]
+              : new Date(lastClaim.rows[0].claim_date).toISOString().split('T')[0])
+          : null,
+        nextResetAt,
+        msUntilReset,
+      });
+    } catch (err: any) {
+      console.error('Error fetching daily claim status:', err);
+      return res.status(500).json({ error: 'Failed to fetch daily claim status' });
+    }
+  }
+
+  // Fallback / mock mode
+  const mockClaim = mockDailyClaims.get(userId);
+  const claimedToday = mockClaim?.lastClaimDate === today;
+  return res.json({
+    success: true,
+    claimedToday,
+    canClaim: !claimedToday,
+    streak: mockClaim?.streak || 0,
+    lastClaimDate: mockClaim?.lastClaimDate || null,
+    nextResetAt,
+    msUntilReset,
+  });
+});
+
 /**
  * POST /api/daily/claim
- * Claim daily streak login reward (1 claim per UTC calendar day)
+ * Claim daily streak login reward (strictly 1 claim per UTC calendar day)
  */
 router.post('/daily/claim', requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const today = new Date().toISOString().split('T')[0];
   const yesterdayDate = new Date(Date.now() - 86400000);
   const yesterday = yesterdayDate.toISOString().split('T')[0];
+  const { nextResetAt, msUntilReset } = getNextUtcReset();
 
   if (isDbActive() && pool) {
     try {
@@ -53,7 +130,10 @@ router.post('/daily/claim', requireAuth, async (req: Request, res: Response) => 
         let consumedInsurance = false;
 
         if (lastRes.rows.length > 0) {
-          const lastClaimDate = new Date(lastRes.rows[0].claim_date).toISOString().split('T')[0];
+          const rawLast = lastRes.rows[0].claim_date;
+          const lastClaimDate = typeof rawLast === 'string'
+            ? rawLast.split('T')[0]
+            : new Date(rawLast).toISOString().split('T')[0];
           const lastStreak = Number(lastRes.rows[0].streak) || 1;
 
           if (lastClaimDate === yesterday) {
@@ -98,13 +178,26 @@ router.post('/daily/claim', requireAuth, async (req: Request, res: Response) => 
           streak: newStreak,
           rewardStardust,
           hasStreakInsurance: hasInsurance && !consumedInsurance,
+          claimedToday: true,
+          canClaim: false,
+          lastClaimDate: today,
+          nextResetAt,
+          msUntilReset,
         };
       });
 
       return res.json({ success: true, ...result });
     } catch (err: any) {
       if (err.message === 'ALREADY_CLAIMED' || err.code === '23505') {
-        return res.status(400).json({ error: 'Daily reward already claimed today.' });
+        return res.status(400).json({
+          success: false,
+          error: 'ALREADY_CLAIMED',
+          message: 'Daily reward already claimed today.',
+          claimedToday: true,
+          canClaim: false,
+          nextResetAt,
+          msUntilReset,
+        });
       }
       console.error('Error claiming daily reward:', err);
       return res.status(500).json({ error: 'Failed to claim daily reward.' });
@@ -117,7 +210,48 @@ router.post('/daily/claim', requireAuth, async (req: Request, res: Response) => 
         message: 'Service temporarily unavailable. Database required.',
       });
     }
-    return res.json({ success: true, streak: 1, rewardStardust: 30, hasStreakInsurance: false });
+
+    // In-memory tracking in mock/dev mode: strictly prevent claiming more than once per day
+    const mockClaim = mockDailyClaims.get(userId);
+    if (mockClaim && mockClaim.lastClaimDate === today) {
+      return res.status(400).json({
+        success: false,
+        error: 'ALREADY_CLAIMED',
+        message: 'Daily reward already claimed today.',
+        claimedToday: true,
+        canClaim: false,
+        streak: mockClaim.streak,
+        nextResetAt,
+        msUntilReset,
+      });
+    }
+
+    let newStreak = 1;
+    if (mockClaim) {
+      if (mockClaim.lastClaimDate === yesterday) {
+        newStreak = Math.min(30, mockClaim.streak + 1);
+      } else {
+        newStreak = 1;
+      }
+    }
+
+    let rewardStardust = 20 + newStreak * 10;
+    if (newStreak % 5 === 0) rewardStardust += 150;
+    if (newStreak === 30) rewardStardust = 2000;
+
+    mockDailyClaims.set(userId, { lastClaimDate: today, streak: newStreak });
+
+    return res.json({
+      success: true,
+      streak: newStreak,
+      rewardStardust,
+      hasStreakInsurance: false,
+      claimedToday: true,
+      canClaim: false,
+      lastClaimDate: today,
+      nextResetAt,
+      msUntilReset,
+    });
   }
 });
 

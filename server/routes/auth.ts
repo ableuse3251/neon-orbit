@@ -1,3 +1,4 @@
+import { getMockDailyClaim } from './economy.js';
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { query, isDbActive } from '../db.js';
@@ -20,7 +21,8 @@ router.get('/session', requireAuth, async (req: Request, res: Response) => {
   };
   let inventory: string[] = ['ship_cyber_wing', 'backdrop_synth_grid'];
   let achievements: string[] = [];
-  let dailyClaimStreak = { streak: 1, lastClaimDate: '' };
+  const todayStr = new Date().toISOString().split('T')[0];
+  let dailyClaimStreak = { streak: 0, lastClaimDate: '', claimedToday: false, canClaim: true };
   let referralsCount = 0;
   let hasStreakInsurance = false;
   let hideFromLeaderboard = false;
@@ -73,9 +75,18 @@ router.get('/session', requireAuth, async (req: Request, res: Response) => {
         [user.id]
       );
       if (claimRes.rows.length > 0) {
+        const rawDate = claimRes.rows[0].claim_date;
+        const lastDate = typeof rawDate === 'string'
+          ? rawDate.split('T')[0]
+          : rawDate instanceof Date
+          ? rawDate.toISOString().split('T')[0]
+          : String(rawDate).split('T')[0];
+        const isClaimedToday = (lastDate === todayStr);
         dailyClaimStreak = {
           streak: Number(claimRes.rows[0].streak || 1),
-          lastClaimDate: String(claimRes.rows[0].claim_date || ''),
+          lastClaimDate: lastDate,
+          claimedToday: isClaimedToday,
+          canClaim: !isClaimedToday,
         };
       }
 
@@ -94,6 +105,19 @@ router.get('/session', requireAuth, async (req: Request, res: Response) => {
       }
     } catch (err) {
       console.error('Error fetching session data from DB:', err);
+    }
+  }
+
+  if (!isDbActive()) {
+    const mock = getMockDailyClaim(user.id);
+    if (mock) {
+      const isClaimedToday = (mock.lastClaimDate === todayStr);
+      dailyClaimStreak = {
+        streak: mock.streak,
+        lastClaimDate: mock.lastClaimDate,
+        claimedToday: isClaimedToday,
+        canClaim: !isClaimedToday,
+      };
     }
   }
 

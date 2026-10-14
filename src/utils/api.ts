@@ -34,6 +34,8 @@ export interface UserSessionData {
   dailyClaimStreak: {
     streak: number;
     lastClaimDate: string;
+    claimedToday?: boolean;
+    canClaim?: boolean;
   };
 }
 
@@ -205,9 +207,25 @@ export const api = {
       streak: number;
       rewardStardust: number;
       hasStreakInsurance: boolean;
+      claimedToday?: boolean;
+      canClaim?: boolean;
+      lastClaimDate?: string;
+      nextResetAt?: string;
+      msUntilReset?: number;
     }>('/api/daily/claim', {
       method: 'POST',
     });
+  },
+  async getDailyClaimStatus() {
+    return fetchApi<{
+      success: boolean;
+      claimedToday: boolean;
+      canClaim: boolean;
+      streak: number;
+      lastClaimDate: string | null;
+      nextResetAt: string;
+      msUntilReset: number;
+    }>('/api/daily/claim/status');
   },
 
   async claimAchievement(achievementId: string) {
