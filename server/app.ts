@@ -20,6 +20,15 @@ import metricsRouter, { incrementHttpRequests } from './routes/metrics.js';
 import webhookRouter from './routes/webhook.js';
 import cronRouter from './routes/cron.js';
 
+class CorsError extends Error {
+  status: number;
+  constructor(message = 'CORS policy error: Origin not allowed.') {
+    super(message);
+    this.name = 'CorsError';
+    this.status = 403;
+  }
+}
+
 export function createApp() {
   const app = express();
 
@@ -54,7 +63,7 @@ export function createApp() {
           return callback(null, true);
         }
 
-        return callback(new Error('CORS policy error: Origin not allowed.'));
+        return callback(new CorsError('CORS policy error: Origin not allowed.'));
       },
       credentials: true,
     })
@@ -67,7 +76,6 @@ export function createApp() {
   app.use('/api', healthRouter);
   app.use('/api', metricsRouter);
   app.use('/api', webhookRouter);
-  app.use('/', webhookRouter);
   app.use('/api', cronRouter);
 
   // Request metrics counter
@@ -76,7 +84,9 @@ export function createApp() {
     next();
   });
 
-  // 4. Rate Limiter with Redis or memory store
+  // 4. Rate Limiter with Redis or stateful in-memory fallback
+  const localRateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: Number(process.env.RATE_LIMIT_MAX) || 150,
@@ -88,13 +98,28 @@ export function createApp() {
         try {
           const hits = await redisIncrWithExpire(`ratelimit:api:${key}`, 900);
           return { totalHits: hits, resetTime: new Date(Date.now() + 15 * 60 * 1000) };
-        } catch {
-          // Fallback if Redis fails
-          return { totalHits: 1, resetTime: new Date(Date.now() + 15 * 60 * 1000) };
+        } catch (err) {
+          logger.warn(`Redis rate limit failed for ${key}, falling back to in-memory counter:`, err);
+          const now = Date.now();
+          const entry = localRateLimitMap.get(key);
+          if (!entry || entry.resetTime <= now) {
+            const resetTime = now + 15 * 60 * 1000;
+            localRateLimitMap.set(key, { count: 1, resetTime });
+            return { totalHits: 1, resetTime: new Date(resetTime) };
+          }
+          entry.count += 1;
+          return { totalHits: entry.count, resetTime: new Date(entry.resetTime) };
         }
       },
-      decrement: async () => {},
-      resetKey: async () => {},
+      decrement: async (key: string) => {
+        const entry = localRateLimitMap.get(key);
+        if (entry && entry.count > 0) {
+          entry.count -= 1;
+        }
+      },
+      resetKey: async (key: string) => {
+        localRateLimitMap.delete(key);
+      },
     },
   });
   app.use('/api/', apiLimiter);
@@ -119,9 +144,21 @@ export function createApp() {
   // 7. Global Error Handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     logger.error('Unhandled API Error:', err);
-    res.status(err.status || 500).json({
+
+    if (err.name === 'CorsError' || (err.message && err.message.includes('CORS policy error'))) {
+      return res.status(403).json({
+        success: false,
+        error: 'CORS_FORBIDDEN',
+      });
+    }
+
+    const statusCode = typeof err.status === 'number' && err.status >= 400 && err.status < 600 ? err.status : 500;
+    const isDev = config.nodeEnv === 'development' || config.nodeEnv === 'test';
+    const clientError = statusCode < 500 ? err.message : (isDev ? (err.message || 'INTERNAL_SERVER_ERROR') : 'INTERNAL_SERVER_ERROR');
+
+    res.status(statusCode).json({
       success: false,
-      error: err.message || 'INTERNAL_SERVER_ERROR',
+      error: clientError || 'INTERNAL_SERVER_ERROR',
     });
   });
 

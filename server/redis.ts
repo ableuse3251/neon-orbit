@@ -128,10 +128,13 @@ const memoryFallback = new MemoryRedisFallback();
 
 if (config.redisUrl) {
   try {
+    const isServerless = process.env.VERCEL === '1' || process.env.SERVERLESS === 'true' || Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
     redisClient = new Redis(config.redisUrl, {
-      maxRetriesPerRequest: 2,
+      maxRetriesPerRequest: isServerless ? 1 : 2,
       enableOfflineQueue: false,
       lazyConnect: true,
+      connectTimeout: isServerless ? 3000 : 10000,
+      retryStrategy: isServerless ? () => null : (times) => Math.min(times * 100, 2000),
     });
 
     redisClient.on('connect', () => {

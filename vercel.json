@@ -2,14 +2,20 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 15,
+      "memory": 1024
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/payments-reconcile",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 1 * * *"
     },
     {
       "path": "/api/cron/notifications",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/leaderboard-reset",
@@ -19,10 +25,6 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.ts"
-    },
-    {
-      "source": "/bot/webhook",
       "destination": "/api/index.ts"
     },
     {

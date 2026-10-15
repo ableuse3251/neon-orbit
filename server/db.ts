@@ -20,7 +20,9 @@ export function setPool(p: pg.Pool | null) {
 
 if (config.databaseUrl) {
   try {
-    const poolMax = Number(process.env.DB_POOL_MAX || 25);
+    const isServerless = process.env.VERCEL === '1' || process.env.SERVERLESS === 'true' || Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
+    const defaultPoolMax = isServerless ? 2 : 25;
+    const poolMax = Number(process.env.DB_POOL_MAX || defaultPoolMax);
     const isDockerLocal = config.dockerLocalDb;
     const useSsl = config.dbSsl && !isDockerLocal && (config.nodeEnv === 'production' || Boolean(config.dbSslCa));
     let sslConfig: boolean | pg.ConnectionConfig['ssl'] = false;
@@ -44,7 +46,7 @@ if (config.databaseUrl) {
       connectionString: config.databaseUrl,
       ssl: sslConfig,
       max: poolMax,
-      idleTimeoutMillis: 30000,
+      idleTimeoutMillis: isServerless ? 10000 : 30000,
       connectionTimeoutMillis: 5000,
     });
 
