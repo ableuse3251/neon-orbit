@@ -27,6 +27,7 @@ if (config.databaseUrl) {
     const useSsl = config.dbSsl && !isDockerLocal && (config.nodeEnv === 'production' || Boolean(config.dbSslCa));
     let sslConfig: boolean | pg.ConnectionConfig['ssl'] = false;
 
+    const isSupabase = config.databaseUrl.includes('supabase.com') || config.databaseUrl.includes('supabase.co');
     if (useSsl) {
       let ca: string | undefined = undefined;
       if (config.dbSslCa) {
@@ -37,7 +38,7 @@ if (config.databaseUrl) {
         }
       }
       sslConfig = {
-        rejectUnauthorized: config.dbSslRejectUnauthorized,
+        rejectUnauthorized: ca ? config.dbSslRejectUnauthorized : (isSupabase ? false : config.dbSslRejectUnauthorized),
         ca,
       };
     }

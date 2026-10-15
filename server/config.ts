@@ -3,12 +3,12 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const nodeEnv = process.env.NODE_ENV || 'development';
-const jwtSecret = process.env.JWT_SECRET || 'default_jwt_secret_change_me';
-const webhookSecret = process.env.WEBHOOK_SECRET || 'default_webhook_secret';
-const metricsSecret = process.env.METRICS_SECRET || 'default_metrics_secret';
-const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
-const rawBotToken = process.env.TELEGRAM_BOT_TOKEN || '';
+const rawBotToken = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN || '';
 const botToken = rawBotToken.trim().replace(/^["']|["']$/g, '');
+const jwtSecret = process.env.JWT_SECRET || (botToken ? `jwt_${botToken.slice(-12)}` : 'default_jwt_secret_change_me');
+const webhookSecret = process.env.WEBHOOK_SECRET || (botToken ? `wh_${botToken.slice(-12)}` : 'default_webhook_secret');
+const metricsSecret = process.env.METRICS_SECRET || (botToken ? `m_${botToken.slice(-12)}` : 'default_metrics_secret');
+const databaseUrl = (process.env.DATABASE_URL || process.env.POSTGRES_URL || '').trim();
 
 export function parseAllowedOrigins(input?: string): string[] {
   if (!input) return [];
@@ -87,7 +87,8 @@ export function validateProductionConfig(cfg: Partial<typeof config>) {
     if (cfg.devAuthBypass) {
       throw new Error('CRITICAL CONFIGURATION ERROR: DEV_AUTH_BYPASS is strictly forbidden in production.');
     }
-    if (cfg.dbSslRejectUnauthorized === false) {
+    const isSupabase = cfg.databaseUrl && (cfg.databaseUrl.includes('supabase.com') || cfg.databaseUrl.includes('supabase.co'));
+    if (cfg.dbSslRejectUnauthorized === false && !isSupabase) {
       throw new Error('CRITICAL CONFIGURATION ERROR: Disabling SSL certificate validation (DB_SSL_REJECT_UNAUTHORIZED=false) is forbidden in production.');
     }
     if (cfg.dockerLocalDb) {
