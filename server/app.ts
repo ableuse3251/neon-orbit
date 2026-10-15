@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
-import { config, getEffectiveAllowedOrigins } from './config.js';
+import { config, configErrors, getEffectiveAllowedOrigins } from './config.js';
 import { logger } from './logger.js';
 import { redisIncrWithExpire } from './redis.js';
 import healthRouter from './routes/health.js';
@@ -34,6 +34,19 @@ export function createApp() {
 
   // Trust reverse proxy (e.g. Vercel, Cloud Run)
   app.set('trust proxy', 1);
+
+  // Configuration Error Guard for API routes
+  app.use('/api', (_req: Request, res: Response, next: NextFunction) => {
+    if (configErrors && configErrors.length > 0) {
+      return res.status(500).json({
+        success: false,
+        error: 'CONFIGURATION_ERROR',
+        message: 'Server misconfigured. Missing required production environment variables.',
+        details: configErrors,
+      });
+    }
+    next();
+  });
 
   // 1. Helmet security headers with CSP for Telegram WebView
   app.use(

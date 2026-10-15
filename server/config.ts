@@ -145,7 +145,15 @@ export const config = {
   telegramInitDataMaxAgeSeconds: Number(process.env.TELEGRAM_INITDATA_MAX_AGE_SECONDS) || 7200,
 };
 
+export const configErrors: string[] = [];
+
 if (config.nodeEnv === 'production') {
-  validateProductionConfig(config);
+  try {
+    validateProductionConfig(config);
+  } catch (err: any) {
+    const errMsg = err?.message || String(err);
+    configErrors.push(errMsg);
+    console.error('CRITICAL PRODUCTION CONFIGURATION WARNING:', errMsg);
+  }
 }
 
