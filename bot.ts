@@ -672,12 +672,25 @@ export async function setupTelegramBot(app: express.Application): Promise<void> 
     return;
   }
 
-  // 1. Informational route for webhook status
+  // 1. Verify token authorization before making API modification calls
+  try {
+    const me = await bot.api.getMe();
+    logger.info(`Telegram Bot verified: @${me.username} (ID: ${me.id})`);
+  } catch (err: any) {
+    const is401 = err?.error_code === 401 || (typeof err?.message === 'string' && err.message.includes('401'));
+    if (is401) {
+      logger.warn('TELEGRAM_BOT_TOKEN is invalid or unauthorized (401). Bot startup skipped.');
+      return;
+    }
+    logger.warn('Could not verify bot token with Telegram API, proceeding with caution:', err?.message || err);
+  }
+
+  // 2. Informational route for webhook status
   app.all('/telegram/webhook', (_req, res) => {
     res.json({ status: 'polling_mode', bot: BOT_USERNAME });
   });
 
-  // 2. Ensure Telegram delivers updates via getUpdates by clearing webhook
+  // 3. Ensure Telegram delivers updates via getUpdates by clearing webhook
   try {
     await bot.api.deleteWebhook({ drop_pending_updates: false });
     logger.info('Telegram webhook cleared for active long-polling mode.');
@@ -724,19 +737,23 @@ export async function setupTelegramBot(app: express.Application): Promise<void> 
   }
 
   // 6. Launch Long-Polling Runner
-  bot.start({
-    drop_pending_updates: false,
-    onStart: (botInfo) => {
-      logger.info(`🚀 Telegram Bot @${botInfo.username} (ID: ${botInfo.id}) is ACTIVE and listening for updates!`);
-    },
-  }).catch((err: any) => {
-    const isConflict = err?.error_code === 409 ||
-      (typeof err?.message === 'string' && (err.message.includes('409') || err.message.includes('terminated by setWebhook request')));
+  try {
+    bot.start({
+      drop_pending_updates: false,
+      onStart: (botInfo) => {
+        logger.info(`🚀 Telegram Bot @${botInfo.username} (ID: ${botInfo.id}) is ACTIVE and listening for updates!`);
+      },
+    }).catch((err: any) => {
+      const isConflict = err?.error_code === 409 ||
+        (typeof err?.message === 'string' && (err.message.includes('409') || err.message.includes('terminated by setWebhook request')));
 
-    if (isConflict) {
-      logger.info('Telegram Bot polling yielded to an active conflict.');
-    } else {
-      logger.warn('Telegram Bot long-polling error:', err?.message || err);
-    }
-  });
+      if (isConflict) {
+        logger.info('Telegram Bot polling yielded to an active conflict.');
+      } else {
+        logger.warn('Telegram Bot long-polling error:', err?.message || err);
+      }
+    });
+  } catch (err: any) {
+    logger.warn('Telegram Bot startup warning (non-fatal):', err?.message || err);
+  }
 }

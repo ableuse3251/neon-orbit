@@ -7,11 +7,13 @@ import { logger } from '../logger.js';
 
 const router = Router();
 
+const originalStart = bot.start;
 const grammyHandler = webhookCallback(bot, 'express', {
   secretToken: config.webhookSecret && config.webhookSecret !== 'default_webhook_secret'
     ? config.webhookSecret
     : undefined,
 });
+bot.start = originalStart;
 
 function safeTokenCompare(provided: string, expected: string): boolean {
   try {
