@@ -6,6 +6,10 @@ import { config } from '../config.js';
 
 const router = Router();
 
+router.get('/health', (req: Request, res: Response) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 router.get('/health/liveness', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

@@ -695,10 +695,4 @@ export function stopPaymentReconciliationWorker(): void {
   }
 }
 
-// Auto-start reconciliation worker
-const appRole = (process.env.APP_ROLE || process.env.ROLE || 'all').toLowerCase();
-if (appRole === 'all' || appRole === 'worker') {
-  startPaymentReconciliationWorker();
-}
-
 export default router;

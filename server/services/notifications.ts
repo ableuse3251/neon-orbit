@@ -241,9 +241,3 @@ export function stopNotificationWorker(): void {
   }
 }
 
-// Auto-start worker unless explicitly running as web-api
-const appRole = (process.env.APP_ROLE || process.env.ROLE || 'all').toLowerCase();
-if (appRole === 'all' || appRole === 'worker') {
-  startNotificationWorker();
-}
-
