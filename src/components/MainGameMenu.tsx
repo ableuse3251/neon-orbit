@@ -35,16 +35,16 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
   const shipName = currentShip.name || profile.selectedShip;
 
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-between px-3 sm:px-4 py-3 sm:py-5 bg-gradient-to-b from-[#050212]/90 via-[#08041d]/85 to-[#04010d]/95 backdrop-blur-md overflow-y-auto max-w-sm mx-auto w-full border-x border-[#00f5d4]/15 shadow-[0_0_60px_rgba(0,0,0,0.9)]">
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-between px-3 sm:px-4 py-2 sm:py-3.5 bg-gradient-to-b from-[#050212]/90 via-[#08041d]/85 to-[#04010d]/95 backdrop-blur-md overflow-y-auto max-w-sm mx-auto w-full border-x border-[#00f5d4]/15 shadow-[0_0_60px_rgba(0,0,0,0.9)]">
       
       {/* Top Branding & Tactical Space Telemetry */}
-      <div className="flex flex-col items-center gap-1.5 animate-fade-in text-center w-full shrink-0">
+      <div className="flex flex-col items-center gap-1 animate-fade-in text-center w-full shrink-0">
         <div className="flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#180b33]/90 border border-[#00f5d4]/40 text-[#00f5d4] text-[9px] sm:text-[10px] font-pixel tracking-widest uppercase shadow-[0_0_15px_rgba(0,245,212,0.25)]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#00f5d4] animate-ping" />
           <span>{t.tagline || 'RETRO SPACE FOOTBALL'}</span>
         </div>
 
-        <h1 className="font-pixel text-2xl sm:text-3xl text-transparent bg-clip-text bg-gradient-to-r from-white via-[#00f5d4] to-white text-glow-cyan font-extrabold tracking-tight drop-shadow-[0_0_15px_rgba(0,245,212,0.6)]">
+        <h1 className="font-pixel text-xl sm:text-2xl text-transparent bg-clip-text bg-gradient-to-r from-white via-[#00f5d4] to-white text-glow-cyan font-extrabold tracking-tight drop-shadow-[0_0_15px_rgba(0,245,212,0.6)]">
           {t.appTitle || 'NEON ORBIT'}
         </h1>
 
@@ -56,7 +56,7 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
         </div>
 
         {/* Live Event Banner */}
-        <div className="w-full mt-1.5">
+        <div className="w-full mt-1">
           <EventBanner
             eventConfig={eventConfig}
             lang={profile.lang}
@@ -74,20 +74,20 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
           triggerHaptic('medium');
           onOpenModal('shop');
         }}
-        className="relative flex flex-col items-center cursor-pointer group my-3 sm:my-auto active:scale-95 transition-all duration-300"
+        className="relative flex flex-col items-center cursor-pointer group my-1.5 sm:my-auto active:scale-95 transition-all duration-300"
       >
         {/* Animated Radar Orbit Rings */}
-        <div className="absolute inset-0 -m-5 rounded-full border border-cyan-500/20 group-hover:border-cyan-400/50 animate-spin-slow pointer-events-none" />
-        <div className="absolute inset-0 -m-9 rounded-full border border-dashed border-magenta-500/20 group-hover:border-magenta-400/40 animate-spin-slow-reverse pointer-events-none" />
+        <div className="absolute inset-0 -m-4 rounded-full border border-cyan-500/20 group-hover:border-cyan-400/50 animate-spin-slow pointer-events-none" />
+        <div className="absolute inset-0 -m-7 rounded-full border border-dashed border-magenta-500/20 group-hover:border-magenta-400/40 animate-spin-slow-reverse pointer-events-none" />
 
         {/* Ship Platform Card */}
-        <div className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-3xl bg-gradient-to-b from-[#180c3e]/95 via-[#0f0727]/98 to-[#060312]/98 border-2 border-[#00f5d4]/70 flex items-center justify-center shadow-[0_0_30px_rgba(0,245,212,0.4)] group-hover:shadow-[0_0_50px_rgba(0,245,212,0.8)] group-hover:border-[#00f5d4] transition-all overflow-hidden p-2 backdrop-blur-xl animate-float">
+        <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-gradient-to-b from-[#180c3e]/95 via-[#0f0727]/98 to-[#060312]/98 border-2 border-[#00f5d4]/70 flex items-center justify-center shadow-[0_0_25px_rgba(0,245,212,0.35)] group-hover:shadow-[0_0_40px_rgba(0,245,212,0.7)] group-hover:border-[#00f5d4] transition-all overflow-hidden p-2 backdrop-blur-xl animate-float">
           {/* Subtle Grid Pattern Overlay */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#00f5d40a_1px,transparent_1px),linear-gradient(to_bottom,#00f5d40a_1px,transparent_1px)] bg-[size:12px_12px] pointer-events-none" />
           
           {/* Ambient Ship Glow */}
           <div 
-            className="absolute w-24 h-24 rounded-full blur-2xl opacity-50 group-hover:opacity-85 transition-opacity"
+            className="absolute w-20 h-20 rounded-full blur-2xl opacity-50 group-hover:opacity-85 transition-opacity"
             style={{ backgroundColor: currentShip.color || '#00f5d4' }}
           />
 
@@ -95,7 +95,7 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
             shipId={profile.selectedShip}
             color={currentShip.color || "#00f5d4"}
             accentColor={currentShip.accentColor || "#ff007f"}
-            size={110}
+            size={90}
           />
 
           {/* Status Overlay Badge */}

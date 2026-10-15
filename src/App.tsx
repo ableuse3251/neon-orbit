@@ -588,7 +588,7 @@ export default function App() {
   const shipName = profile.lang === 'ru' ? currentShip.nameRu : currentShip.name;
 
   return (
-    <div className="relative w-screen h-app-screen bg-[#0b071e] text-white overflow-hidden flex flex-col font-mono-tech select-none">
+    <div className="relative w-full max-w-full h-full h-app-screen bg-[#0b071e] text-white overflow-hidden flex flex-col font-mono-tech select-none">
       {/* Offline Connectivity Screen */}
       <OfflineOverlay
         isOffline={isOffline}

@@ -7,7 +7,8 @@ const jwtSecret = process.env.JWT_SECRET || 'default_jwt_secret_change_me';
 const webhookSecret = process.env.WEBHOOK_SECRET || 'default_webhook_secret';
 const metricsSecret = process.env.METRICS_SECRET || 'default_metrics_secret';
 const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
-const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
+const rawBotToken = process.env.TELEGRAM_BOT_TOKEN || '';
+const botToken = rawBotToken.trim().replace(/^["']|["']$/g, '');
 
 export function parseAllowedOrigins(input?: string): string[] {
   if (!input) return [];

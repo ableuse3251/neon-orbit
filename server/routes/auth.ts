@@ -2,6 +2,7 @@ import { getMockDailyClaim } from "./economy.js";
 import { Router, Request, Response } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { query, isDbActive } from "../db.js";
+import { config } from "../config.js";
 import { redisZRem } from "../redis.js";
 import { deleteUserAccount } from "../services/leaderboard.js";
 import {
@@ -161,6 +162,11 @@ router.get("/session", requireAuth, async (req: Request, res: Response) => {
     inventory,
     achievements,
     dailyClaimStreak,
+    authDiagnostics: {
+      isTelegramValid: !user.isDemo,
+      hasBotToken: Boolean(config.botToken),
+      isDemo: Boolean(user.isDemo),
+    },
   });
 });
 
