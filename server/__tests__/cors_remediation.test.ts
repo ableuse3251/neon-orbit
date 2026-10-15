@@ -205,7 +205,7 @@ describe('CORS and Production Configuration Remediation Suite', () => {
         webhookSecret: 'super_secret_webhook_random_key_123',
         metricsSecret: 'super_secret_metrics_bearer_random_1',
         databaseUrl: 'postgres://neon_user:pass@localhost:5432/neon_orbit',
-        botToken: '8611883429:AAEvNHuFSO5De5LMXuIcHoVBRACQMqlP70Y',
+        botToken: '999888777:ABCDEFGHIJKLMNO_PQRSTUVWXYZabcdefghijklm',
         mockModeAllowed: false,
         devAuthBypass: false,
         dbSslRejectUnauthorized: true,
