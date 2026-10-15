@@ -1,4 +1,4 @@
-import { getTelegramApp } from './telegram';
+import { getTelegramApp, getRawTelegramInitData, getTelegramInitDataAsync } from './telegram';
 import { ClickLog } from '../shared/targetGenerator';
 import { LiveEventConfig, AdminMetrics, PlayerAdminView, PaymentRecord } from '../types/game';
 
@@ -93,8 +93,10 @@ export function getNormalizedApiUrl(endpoint: string): string {
 }
 
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const telegramApp = getTelegramApp();
-  const initData = telegramApp?.initData || '';
+  let initData = getRawTelegramInitData();
+  if (!initData && typeof window !== 'undefined' && (window as any).Telegram) {
+    initData = await getTelegramInitDataAsync(1500);
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

@@ -122,10 +122,18 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   let initDataHeader = req.headers['authorization'] || (req.headers['x-init-data'] as string) || '';
 
   if (typeof initDataHeader === 'string') {
+    initDataHeader = initDataHeader.trim();
     if (initDataHeader.startsWith('tma ')) {
       initDataHeader = initDataHeader.slice(4).trim();
     } else if (initDataHeader.startsWith('Bearer ')) {
       initDataHeader = initDataHeader.slice(7).trim();
+    }
+    if (initDataHeader.includes('%3D') || initDataHeader.includes('%26') || initDataHeader.includes('%7B')) {
+      try {
+        initDataHeader = decodeURIComponent(initDataHeader);
+      } catch {
+        // ignore
+      }
     }
   } else {
     initDataHeader = '';
@@ -134,6 +142,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   req.initDataRaw = '[REDACTED]';
 
   const verification = verifyTelegramInitData(initDataHeader);
+  const parsedInit = parseInitData(initDataHeader);
 
   let userId: number = 0;
   let username = 'Pilot';
@@ -148,10 +157,17 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     firstName = verification.userObj.first_name || 'Pilot';
     language = verification.userObj.language_code || 'en';
     isPremium = !!verification.userObj.is_premium;
+    isDemo = false;
   } else {
-    // If invalid or missing, allow demo fallback in non-production environments or when devAuthBypass is enabled
+    // If invalid or missing, allow demo fallback only in non-production environments or when devAuthBypass is explicitly enabled
     if (config.nodeEnv !== 'production' || config.devAuthBypass) {
-      if (initDataHeader && /user_?\d+/i.test(initDataHeader)) {
+      if (parsedInit?.userObj?.id) {
+        userId = Number(parsedInit.userObj.id);
+        username = parsedInit.userObj.username || parsedInit.userObj.first_name || `pilot_${userId}`;
+        firstName = parsedInit.userObj.first_name || 'Pilot';
+        language = parsedInit.userObj.language_code || 'en';
+        isPremium = !!parsedInit.userObj.is_premium;
+      } else if (initDataHeader && /user_?\d+/i.test(initDataHeader)) {
         const match = initDataHeader.match(/user_?(\d+)/i);
         if (match) {
           userId = Number(match[1]);

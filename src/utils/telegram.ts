@@ -83,6 +83,42 @@ export const getTelegramApp = (): TelegramWebApp | null => {
   return null;
 };
 
+export function getRawTelegramInitData(): string {
+  if (typeof window === 'undefined') return '';
+  const app = getTelegramApp();
+  if (app?.initData) return app.initData;
+
+  try {
+    const hash = window.location.hash || window.location.search || '';
+    if (hash.includes('tgWebAppData=')) {
+      const match = hash.match(/tgWebAppData=([^&]+)/);
+      if (match) {
+        return decodeURIComponent(match[1]);
+      }
+    } else if (hash.includes('user=') && hash.includes('hash=')) {
+      return hash.replace(/^[#?]/, '');
+    }
+  } catch {
+    // ignore
+  }
+
+  return '';
+}
+
+export async function getTelegramInitDataAsync(timeoutMs = 1500): Promise<string> {
+  const existing = getRawTelegramInitData();
+  if (existing) return existing;
+
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const initData = getRawTelegramInitData();
+    if (initData) return initData;
+  }
+
+  return getRawTelegramInitData();
+}
+
 export const initTelegramSDK = (): { user: TelegramUser; startParam?: string; isTelegram: boolean } => {
   const app = getTelegramApp();
   if (app) {
