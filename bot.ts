@@ -25,7 +25,7 @@ bot.catch((err) => {
   logger.warn(`Telegram Bot error during update ${ctx?.update?.update_id || 'unknown'}:`, err.error);
 });
 
-const APP_URL = config.appUrl || process.env.APP_URL || 'http://localhost:3000';
+const APP_URL = (config.appUrl && !config.appUrl.includes('ais-dev-') && !config.appUrl.includes('localhost') ? config.appUrl : '') || 'https://neon-orbit-omega.vercel.app';
 const BOT_USERNAME = config.botUsername || process.env.BOT_USERNAME || 'NeonOrbitBot';
 
 function isRu(ctx: Context): boolean {

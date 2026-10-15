@@ -127,7 +127,7 @@ export const config = {
   botUsername: process.env.BOT_USERNAME || 'Neon_orbitbot',
   devAuthBypass: nodeEnv === 'production' ? false : (process.env.DEV_AUTH_BYPASS === 'true'),
   mockModeAllowed: nodeEnv === 'production' ? false : (process.env.ENABLE_MOCK_GAME === 'true' || nodeEnv !== 'production'),
-  appUrl: process.env.APP_URL || '',
+  appUrl: (process.env.APP_URL || '').trim() || 'https://neon-orbit-omega.vercel.app',
   corsOrigin: allowedOrigins,
   allowedOrigins,
   adminTelegramIds: (process.env.ADMIN_TELEGRAM_IDS || '')
