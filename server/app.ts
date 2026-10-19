@@ -146,6 +146,7 @@ export function createApp() {
 
   // 5. Mount Authenticated API Routes
   app.use('/api/auth', authRouter);
+  app.use('/api', authRouter);
   app.use('/api', gameRouter);
   app.use('/api', starsRouter);
   app.use('/api', economyRouter);

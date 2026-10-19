@@ -174,7 +174,7 @@ router.get("/session", requireAuth, async (req: Request, res: Response) => {
  * POST /api/user/nickname/check
  * Check if username is available and valid
  */
-router.post("/user/nickname/check", requireAuth, async (req: Request, res: Response) => {
+router.post(["/user/nickname/check", "/user/check-nickname"], requireAuth, async (req: Request, res: Response) => {
   const parsed = checkNicknameSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ available: false, error: parsed.error.issues[0]?.message || "Неверный никнейм" });

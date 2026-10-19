@@ -4573,7 +4573,7 @@ router5.get("/session", requireAuth, async (req, res) => {
     }
   });
 });
-router5.post("/user/nickname/check", requireAuth, async (req, res) => {
+router5.post(["/user/nickname/check", "/user/check-nickname"], requireAuth, async (req, res) => {
   const parsed = checkNicknameSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ available: false, error: parsed.error.issues[0]?.message || "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u043D\u0438\u043A\u043D\u0435\u0439\u043C" });
@@ -6955,6 +6955,7 @@ function createApp() {
   });
   app2.use("/api/", apiLimiter);
   app2.use("/api/auth", auth_default);
+  app2.use("/api", auth_default);
   app2.use("/api", game_default);
   app2.use("/api", stars_default);
   app2.use("/api", economy_default);
