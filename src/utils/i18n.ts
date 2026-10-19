@@ -96,6 +96,8 @@ export const translations = {
     offlineTitle: 'SIGNAL LOST',
     offlineDesc: 'Cosmic link severed. Reconnecting to Starfleet telemetry network...',
     offlineRetry: 'RECONNECT',
+    offlineReconnecting: 'CONNECTING...',
+    offlineContinue: 'CONTINUE OFFLINE',
     privacyTerms: 'Privacy Policy & Stars Terms',
   },
   ru: {
@@ -193,6 +195,8 @@ export const translations = {
     offlineTitle: 'СВЯЗЬ ПОТЕРЯНА',
     offlineDesc: 'Космический канал прерван. Переподключение к телеметрии...',
     offlineRetry: 'ПЕРЕПОДКЛЮЧИТЬСЯ',
+    offlineReconnecting: 'ПОДКЛЮЧЕНИЕ...',
+    offlineContinue: 'ИГРАТЬ АВТОНОМНО',
     privacyTerms: 'Политика Конфиденциальности & Stars',
   },
 };

@@ -439,5 +439,31 @@ export const api = {
       body: JSON.stringify(prefs),
     });
   },
+
+  async checkConnectivity(timeoutMs = 3500) {
+    return checkConnectivity(timeoutMs);
+  },
 };
+
+/**
+ * Proactively verifies network reachability against backend health probe.
+ * Avoids false negatives in Telegram WebApp/Android WebView when VPN or private DNS is active.
+ */
+export async function checkConnectivity(timeoutMs = 3500): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const url = getNormalizedApiUrl('/api/health/liveness?_t=' + Date.now());
+    const res = await fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    return res.ok || res.status < 500;
+  } catch {
+    return typeof navigator !== 'undefined' ? Boolean(navigator.onLine) : false;
+  }
+}
+
 

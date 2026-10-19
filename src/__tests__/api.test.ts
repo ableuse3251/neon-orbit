@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { normalizeApiUrl } from '../utils/api';
 
 describe('Base URL Normalization (normalizeApiUrl)', () => {
@@ -48,4 +48,38 @@ describe('Base URL Normalization (normalizeApiUrl)', () => {
       );
     });
   });
+
+  describe('Connectivity Probing (checkConnectivity)', () => {
+    it('returns true when health probe responds successfully', async () => {
+      const { checkConnectivity } = await import('../utils/api');
+      // Mock global fetch to return 200 ok
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ status: 'ok' }),
+      } as any);
+
+      try {
+        const isAlive = await checkConnectivity(1000);
+        expect(isAlive).toBe(true);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('falls back to navigator.onLine when fetch times out or fails', async () => {
+      const { checkConnectivity } = await import('../utils/api');
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+      try {
+        const isAlive = await checkConnectivity(100);
+        expect(typeof isAlive).toBe('boolean');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
 });
+

@@ -34,7 +34,7 @@ import { performanceManager } from './utils/performance';
 import { flushPendingRoundsQueue, markRoundSubmitted, savePendingRound, submitRoundLogWithRetry } from './utils/sync';
 import { getTranslation } from './utils/i18n';
 import { calculateRoundRewards, getLevelFromXp } from './utils/progression';
-import { api } from './utils/api';
+import { api, checkConnectivity } from './utils/api';
 import { useModalStore, ModalType } from './store/modalStore';
 
 export default function App() {
@@ -70,23 +70,73 @@ export default function App() {
   }, [activeTab, closeAllModals, closeModal, openModal]);
 
   // Network Offline State
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isOffline, setIsOffline] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
 
   useEffect(() => {
+    let unmounted = false;
+
+    // Proactively verify connection if browser reports offline (avoids false-positive in WebView/VPN)
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      checkConnectivity().then((alive) => {
+        if (!unmounted && !alive) {
+          setIsOffline(true);
+        }
+      });
+    }
+
     const handleOnline = () => {
       setIsOffline(false);
       flushPendingRoundsQueue();
     };
-    const handleOffline = () => setIsOffline(true);
+
+    const handleOffline = () => {
+      // Don't immediately lock out user; verify if server is actually unreachable
+      checkConnectivity().then((alive) => {
+        if (!unmounted && !alive) {
+          setIsOffline(true);
+        }
+      });
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
     return () => {
+      unmounted = true;
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  const handleRetryConnection = async () => {
+    setIsReconnecting(true);
+    try {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        setIsOffline(false);
+        flushPendingRoundsQueue();
+        triggerHaptic('success');
+        return;
+      }
+      const alive = await checkConnectivity();
+      if (alive) {
+        setIsOffline(false);
+        flushPendingRoundsQueue();
+        triggerHaptic('success');
+      } else {
+        triggerHaptic('error');
+      }
+    } catch {
+      triggerHaptic('error');
+    } finally {
+      setIsReconnecting(false);
+    }
+  };
+
+  const handleContinueOffline = () => {
+    setIsOffline(false);
+    setIsDemoMode(true);
+  };
 
   // Live Ops Event Config State
   const [eventConfig, setEventConfig] = useState<LiveEventConfig>({
@@ -593,12 +643,9 @@ export default function App() {
       <OfflineOverlay
         isOffline={isOffline}
         lang={profile.lang}
-        onRetry={() => {
-          if (navigator.onLine) {
-            setIsOffline(false);
-            flushPendingRoundsQueue();
-          }
-        }}
+        isReconnecting={isReconnecting}
+        onRetry={handleRetryConnection}
+        onContinueOffline={handleContinueOffline}
       />
 
       {gameState === 'MENU' && (

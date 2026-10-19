@@ -35,19 +35,6 @@ export function createApp() {
   // Trust reverse proxy (e.g. Vercel, Cloud Run)
   app.set('trust proxy', 1);
 
-  // Configuration Error Guard for API routes
-  app.use('/api', (_req: Request, res: Response, next: NextFunction) => {
-    if (configErrors && configErrors.length > 0) {
-      return res.status(500).json({
-        success: false,
-        error: 'CONFIGURATION_ERROR',
-        message: 'Server misconfigured. Missing required production environment variables.',
-        details: configErrors,
-      });
-    }
-    next();
-  });
-
   // 1. Helmet security headers with CSP for Telegram WebView
   app.use(
     helmet({
@@ -90,8 +77,23 @@ export function createApp() {
   // 3. Strict JSON body parser limit
   app.use(express.json({ limit: '100kb' }));
 
-  // Mount health, metrics, webhook, and cron endpoints prior to standard API rate limiting
+  // Mount health endpoints FIRST so liveness probes and client offline checks can always respond
   app.use('/api', healthRouter);
+
+  // Configuration Error Guard for API routes
+  app.use('/api', (_req: Request, res: Response, next: NextFunction) => {
+    if (configErrors && configErrors.length > 0) {
+      return res.status(500).json({
+        success: false,
+        error: 'CONFIGURATION_ERROR',
+        message: 'Server misconfigured. Missing required production environment variables.',
+        details: configErrors,
+      });
+    }
+    next();
+  });
+
+  // Mount metrics, webhook, and cron endpoints prior to standard API rate limiting
   app.use('/api', metricsRouter);
   app.use('/api', webhookRouter);
   app.use('/api', cronRouter);
