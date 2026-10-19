@@ -35,7 +35,7 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
   const shipName = currentShip.name || profile.selectedShip;
 
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-between px-3 sm:px-4 py-2 sm:py-3.5 bg-gradient-to-b from-[#050212]/90 via-[#08041d]/85 to-[#04010d]/95 backdrop-blur-md overflow-y-auto max-w-sm mx-auto w-full border-x border-[#00f5d4]/15 shadow-[0_0_60px_rgba(0,0,0,0.9)]">
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-between px-3 sm:px-4 py-2 sm:py-3.5 bg-gradient-to-b from-[#050212]/90 via-[#08041d]/85 to-[#04010d]/95 backdrop-blur-md overflow-y-auto max-w-md mx-auto w-full border-x border-[#00f5d4]/15 shadow-[0_0_60px_rgba(0,0,0,0.9)]">
       
       {/* Top Branding & Tactical Space Telemetry */}
       <div className="flex flex-col items-center gap-1 animate-fade-in text-center w-full shrink-0">

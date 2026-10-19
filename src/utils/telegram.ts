@@ -142,10 +142,13 @@ export const initTelegramSDK = (): { user: TelegramUser; startParam?: string; is
 
     // Ensure app height css variable matches Telegram viewport precisely
     const updateViewportHeight = () => {
-      const vh = app.viewportHeight ? `${app.viewportHeight}px` : `${window.innerHeight}px`;
+      const height = window.innerHeight || (app.viewportHeight ? app.viewportHeight : 0);
+      const vh = height ? `${height}px` : '100dvh';
       document.documentElement.style.setProperty('--app-height', vh);
     };
     updateViewportHeight();
+    setTimeout(updateViewportHeight, 200);
+    setTimeout(updateViewportHeight, 500);
     window.addEventListener('resize', updateViewportHeight);
     try {
       app.onEvent?.('viewportChanged', updateViewportHeight);

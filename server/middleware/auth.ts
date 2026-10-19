@@ -119,7 +119,11 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return;
   }
 
-  let initDataHeader = req.headers['authorization'] || (req.headers['x-init-data'] as string) || '';
+  let initDataHeader =
+    req.headers['authorization'] ||
+    (req.headers['x-init-data'] as string) ||
+    (req.headers['x-telegram-init-data'] as string) ||
+    '';
 
   if (typeof initDataHeader === 'string') {
     initDataHeader = initDataHeader.trim();
@@ -127,13 +131,6 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       initDataHeader = initDataHeader.slice(4).trim();
     } else if (initDataHeader.startsWith('Bearer ')) {
       initDataHeader = initDataHeader.slice(7).trim();
-    }
-    if (initDataHeader.includes('%3D') || initDataHeader.includes('%26') || initDataHeader.includes('%7B')) {
-      try {
-        initDataHeader = decodeURIComponent(initDataHeader);
-      } catch {
-        // ignore
-      }
     }
   } else {
     initDataHeader = '';

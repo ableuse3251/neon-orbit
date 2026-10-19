@@ -16,6 +16,9 @@ export function setDbConnected(connected: boolean) {
 
 export function setPool(p: pg.Pool | null) {
   pool = p;
+  if (!p) {
+    isDbConnected = false;
+  }
 }
 
 if (config.databaseUrl) {
@@ -47,8 +50,8 @@ if (config.databaseUrl) {
       connectionString: config.databaseUrl,
       ssl: sslConfig,
       max: poolMax,
-      idleTimeoutMillis: isServerless ? 10000 : 30000,
-      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 20000,
     });
 
     pool.on('error', (err) => {

@@ -76,6 +76,11 @@ export function createApp() {
           return callback(null, true);
         }
 
+        // Allow any vercel.app domain
+        if (/^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)) {
+          return callback(null, true);
+        }
+
         return callback(new CorsError('CORS policy error: Origin not allowed.'));
       },
       credentials: true,

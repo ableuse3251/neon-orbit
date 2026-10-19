@@ -48,14 +48,17 @@ describe("Daily Quests vs Achievements Separation & Gameplay Logic", () => {
     const questsBefore = await getUserDailyQuests(userId);
     const questToFulfill = questsBefore[0];
 
-    // Simulate round gameplay that satisfies the quest
-    await updateQuestProgressForRound(userId, {
-      score: 10000,
-      maxCombo: 15,
-      hits: 150,
-      goldenBeaconsHit: 10,
-      isDailyChallenge: true,
-    });
+    // Simulate round gameplay that satisfies the quest (running sufficient rounds for round-count quests)
+    const requiredRounds = questToFulfill.type === 'rounds' ? (questToFulfill.target_value || 5) : 1;
+    for (let r = 0; r < requiredRounds; r++) {
+      await updateQuestProgressForRound(userId, {
+        score: 10000,
+        maxCombo: 15,
+        hits: 150,
+        goldenBeaconsHit: 10,
+        isDailyChallenge: true,
+      });
+    }
 
     const questsAfter = await getUserDailyQuests(userId);
     const fulfilledQuest = questsAfter.find((q: any) => q.id === questToFulfill.id);

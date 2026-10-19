@@ -125,6 +125,7 @@ class MemoryRedisFallback {
 }
 
 const memoryFallback = new MemoryRedisFallback();
+let activeRedisUrl = config.redisUrl || '';
 
 if (config.redisUrl) {
   try {
@@ -163,6 +164,34 @@ if (config.redisUrl) {
   logger.info('No REDIS_URL provided. Running with in-memory Redis fallback (Development/Local mode).');
 }
 
+async function ensureRedisConnected(): Promise<boolean> {
+  if (!redisClient) return false;
+  const status = (redisClient as any).status;
+  if (status === 'ready') {
+    isRedisConnected = true;
+    return true;
+  }
+  if (status === 'wait' || status === 'close') {
+    try {
+      await redisClient.connect();
+      isRedisConnected = (redisClient as any).status === 'ready';
+      return isRedisConnected;
+    } catch {
+      isRedisConnected = false;
+      return false;
+    }
+  }
+  if (status === 'connecting' || status === 'connect') {
+    const start = Date.now();
+    while ((redisClient as any).status !== 'ready' && Date.now() - start < 1500) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    isRedisConnected = (redisClient as any).status === 'ready';
+    return isRedisConnected;
+  }
+  return isRedisConnected;
+}
+
 /**
  * Ensures strict production handling when Redis is disconnected:
  * In production, if REDIS_URL is configured, failing over silently to independent local memory
@@ -170,15 +199,17 @@ if (config.redisUrl) {
  * Therefore, in production, Redis operations either succeed or throw/reject (fail-fast / controlled degradation).
  */
 function assertRedisAvailability(operationName: string): void {
-  if (config.nodeEnv === 'production' && config.redisUrl && (!redisClient || !isRedisConnected)) {
-    redisDegradedCounter++;
-    logger.error(`CRITICAL REDIS OUTAGE: ${operationName} attempted while Redis is disconnected in production.`);
-    throw new Error(`CRITICAL: Redis is required for ${operationName} in production but is currently disconnected.`);
+  if (config.nodeEnv === 'production' && config.redisUrl) {
+    if (!redisClient || ((!isRedisConnected && redisClient.status !== 'ready') && redisClient.status !== 'connect' && redisClient.status !== 'connecting')) {
+      redisDegradedCounter++;
+      logger.error(`CRITICAL REDIS OUTAGE: ${operationName} attempted while Redis is disconnected in production.`);
+      throw new Error(`CRITICAL: Redis is required for ${operationName} in production but is currently disconnected.`);
+    }
   }
 }
 
 export async function redisGet(key: string): Promise<string | null> {
-  if (redisClient && isRedisConnected) {
+  if (redisClient && (isRedisConnected || (await ensureRedisConnected()))) {
     try {
       return await redisClient.get(key);
     } catch (err) {
@@ -192,7 +223,7 @@ export async function redisGet(key: string): Promise<string | null> {
 }
 
 export async function redisSet(key: string, value: string, ttlSeconds?: number): Promise<void> {
-  if (redisClient && isRedisConnected) {
+  if (redisClient && (isRedisConnected || (await ensureRedisConnected()))) {
     try {
       if (ttlSeconds) {
         await redisClient.set(key, value, 'EX', ttlSeconds);
@@ -211,7 +242,7 @@ export async function redisSet(key: string, value: string, ttlSeconds?: number):
 }
 
 export async function redisDel(key: string): Promise<void> {
-  if (redisClient && isRedisConnected) {
+  if (redisClient && (isRedisConnected || (await ensureRedisConnected()))) {
     try {
       await redisClient.del(key);
       return;
@@ -226,7 +257,7 @@ export async function redisDel(key: string): Promise<void> {
 }
 
 export async function redisZAdd(key: string, score: number, member: string): Promise<void> {
-  if (redisClient && isRedisConnected) {
+  if (redisClient && (isRedisConnected || (await ensureRedisConnected()))) {
     try {
       await redisClient.zadd(key, score, member);
       return;
@@ -241,7 +272,7 @@ export async function redisZAdd(key: string, score: number, member: string): Pro
 }
 
 export async function redisZRem(key: string, member: string): Promise<void> {
-  if (redisClient && isRedisConnected) {
+  if (redisClient && (isRedisConnected || (await ensureRedisConnected()))) {
     try {
       await redisClient.zrem(key, member);
       return;
@@ -256,7 +287,7 @@ export async function redisZRem(key: string, member: string): Promise<void> {
 }
 
 export async function redisZRevRank(key: string, member: string): Promise<number | null> {
-  if (redisClient && isRedisConnected) {
+  if (redisClient && (isRedisConnected || (await ensureRedisConnected()))) {
     try {
       const res = await redisClient.zrevrank(key, member);
       return res;
@@ -271,7 +302,7 @@ export async function redisZRevRank(key: string, member: string): Promise<number
 }
 
 export async function redisZScore(key: string, member: string): Promise<number | null> {
-  if (redisClient && isRedisConnected) {
+  if (redisClient && (isRedisConnected || (await ensureRedisConnected()))) {
     try {
       const res = await redisClient.zscore(key, member);
       return res !== null ? Number(res) : null;
@@ -291,7 +322,7 @@ export async function redisZRevRange(
   stop: number,
   withScores = false
 ): Promise<string[]> {
-  if (redisClient && isRedisConnected) {
+  if (redisClient && (isRedisConnected || (await ensureRedisConnected()))) {
     try {
       if (withScores) {
         return await redisClient.zrevrange(key, start, stop, 'WITHSCORES');
@@ -308,7 +339,7 @@ export async function redisZRevRange(
 }
 
 export async function redisIncrWithExpire(key: string, ttlSeconds: number): Promise<number> {
-  if (redisClient && isRedisConnected) {
+  if (redisClient && (isRedisConnected || (await ensureRedisConnected()))) {
     try {
       const count = await redisClient.incr(key);
       if (count === 1) {
@@ -337,6 +368,10 @@ export async function redisIncrWithExpire(key: string, ttlSeconds: number): Prom
 export async function checkRedisHealth(): Promise<{ status: 'ok' | 'degraded' | 'disabled'; message?: string; degradedCount?: number }> {
   if (!config.redisUrl) {
     return { status: 'disabled', message: 'No REDIS_URL configured (In-Memory Fallback)', degradedCount: redisDegradedCounter };
+  }
+
+  if (activeRedisUrl !== config.redisUrl) {
+    return { status: 'degraded', message: 'Redis connection inactive, fallback active', degradedCount: redisDegradedCounter };
   }
 
   if (redisClient && isRedisConnected) {

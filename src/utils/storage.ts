@@ -158,15 +158,28 @@ export const getInitialProfile = (telegramUser?: { id: number; first_name: strin
     },
   };
 
-  if (typeof localStorage === 'undefined') return defaultProfile;
+  const isRealTelegramUser = Boolean(telegramUser && telegramUser.id && telegramUser.id !== 888777666);
+
+  if (typeof localStorage === 'undefined') {
+    return {
+      ...defaultProfile,
+      isDemo: !isRealTelegramUser,
+    };
+  }
 
   try {
     const raw = localStorage.getItem(PROFILE_KEY);
-    if (!raw) return defaultProfile;
+    if (!raw) {
+      return {
+        ...defaultProfile,
+        isDemo: !isRealTelegramUser,
+      };
+    }
     const parsed = JSON.parse(raw);
     return {
       ...defaultProfile,
       ...parsed,
+      isDemo: isRealTelegramUser ? false : (parsed.isDemo ?? !isRealTelegramUser),
       level: parsed.level || 1,
       xp: parsed.xp || 0,
       totalRounds: parsed.totalRounds || 0,
