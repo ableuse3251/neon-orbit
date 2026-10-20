@@ -33,6 +33,7 @@ import { audioManager } from './utils/audio';
 import { performanceManager } from './utils/performance';
 import { flushPendingRoundsQueue, markRoundSubmitted, savePendingRound, submitRoundLogWithRetry } from './utils/sync';
 import { getTranslation } from './utils/i18n';
+import { trackEvent } from './utils/analytics';
 import { calculateRoundRewards, getLevelFromXp } from './utils/progression';
 import { api, checkConnectivity } from './utils/api';
 import { useModalStore, ModalType } from './store/modalStore';
@@ -170,6 +171,7 @@ export default function App() {
 
   // Initialize Auth Session from Server
   useEffect(() => {
+    trackEvent('app_open');
     api.getSession()
       .then((session) => {
         setProfile((prev) => {
@@ -314,6 +316,7 @@ export default function App() {
         setCurrentSeed(res.seed);
         setDailySeed(isDaily ? res.seed : undefined);
         setGameState('PLAYING');
+        trackEvent('round_start', { mode: isDaily ? 'daily' : 'normal' });
 
         if (profile.settings.music) {
           audioManager.startSynthwaveLoop();
@@ -344,6 +347,7 @@ export default function App() {
     audioManager.stopMusic();
     audioManager.playBeacon();
     triggerHaptic('success');
+    trackEvent('round_complete', { score: stats.score });
 
     // Authoritative round ID is the server round ID (currentRoundId).
     // Prioritize currentRoundId over stats.roundId

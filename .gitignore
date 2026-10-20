@@ -9,3 +9,5 @@ coverage/
 cloudflared
 *.log
 bun.lock
+.aistudio/
+public/assets/aistudio/

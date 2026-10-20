@@ -55,7 +55,14 @@ async function checkAnonymousRateLimit(ip: string): Promise<boolean> {
  * Batch ingest analytics events from client with strict validation & security
  */
 router.post('/analytics/events', async (req: Request, res: Response) => {
-  const userId = req.user?.id ? String(req.user.id) : 'anonymous';
+  let userId = req.user?.id ? String(req.user.id) : '';
+  if (!userId && req.body?.user_id) {
+    userId = String(req.body.user_id).trim();
+  }
+  if (!userId) {
+    userId = 'anonymous';
+  }
+
   if (userId === 'anonymous') {
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
     const isAllowed = await checkAnonymousRateLimit(clientIp);

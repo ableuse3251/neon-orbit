@@ -3,6 +3,7 @@ import { X, Users, Gift, Share2, Copy, Check, ShieldCheck, Sparkles, Award } fro
 import { PlayerProfile, ReferralTier } from '../types/game';
 import { triggerHaptic } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
+import { trackEvent } from '../utils/analytics';
 
 interface ReferralsModalProps {
   profile: PlayerProfile;
@@ -30,11 +31,13 @@ export const ReferralsModal: React.FC<ReferralsModalProps> = ({
     triggerHaptic('success');
     navigator.clipboard.writeText(refUrl);
     setCopied(true);
+    trackEvent('invite_sent', { type: 'copy_link' });
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleShareInvite = () => {
     triggerHaptic('medium');
+    trackEvent('invite_sent', { type: 'telegram_share' });
     const shareText = encodeURIComponent(
       profile.lang === 'ru'
         ? `🛸 Летим в Neon Orbit! Присоединяйся к моей космической эскадрилье и получи +250 Звёздной Пыли при старте!`

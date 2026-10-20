@@ -5,6 +5,7 @@ import { particlePool, floatingTextPool } from '../utils/pool';
 import { performanceManager } from '../utils/performance';
 import { audioManager } from '../utils/audio';
 import { triggerHaptic } from '../utils/telegram';
+import { trackEvent } from '../utils/analytics';
 
 interface GameCanvasProps {
   isPlaying: boolean;
@@ -388,6 +389,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         hit: false,
         scoreGained: 0,
       });
+    }
+
+    if (state.clickLogs.length === 1) {
+      trackEvent('first_tap', { latencyMs: Math.round(nowOffset) });
     }
 
     onScoreUpdate(state.score, state.combo, state.multiplier, []);

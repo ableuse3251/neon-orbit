@@ -272,28 +272,28 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   <div className="p-3 rounded-xl bg-[#0b071e] border border-[#9d4edd]/40 flex flex-col gap-1">
                     <span className="text-[10px] text-gray-400 font-pixel">RETENTION (D1/D7/D30)</span>
                     <span className="font-pixel text-xs text-white font-bold">
-                      D1: {metrics.retentionD1}% | D7: {metrics.retentionD7}% | D30: {metrics.retentionD30}%
+                      D1: {Number(metrics.retentionD1 || 0)}% | D7: {Number(metrics.retentionD7 || 0)}% | D30: {Number(metrics.retentionD30 || 0)}%
                     </span>
                   </div>
 
                   <div className="p-3 rounded-xl bg-[#0b071e] border border-[#9d4edd]/40 flex flex-col gap-1">
                     <span className="text-[10px] text-gray-400 font-pixel">K-FACTOR & ARPDAU</span>
                     <span className="font-pixel text-xs text-[#00f5d4] font-bold">
-                      K: {metrics.kFactor} | ARPDAU: {metrics.arpdau}⭐
+                      K: {Number(metrics.kFactor || 0)} | ARPDAU: {Number(metrics.arpdau || 0)}⭐
                     </span>
                   </div>
 
                   <div className="p-3 rounded-xl bg-[#0b071e] border border-[#ff007f]/40 flex flex-col gap-1">
                     <span className="text-[10px] text-gray-400 font-pixel">AVG ROUNDS / SESSION</span>
                     <span className="font-pixel text-lg text-[#ff007f] font-bold">
-                      {metrics.avgRoundsPerSession}
+                      {Number(metrics.avgRoundsPerSession || 0)}
                     </span>
                   </div>
 
                   <div className="p-3 rounded-xl bg-[#0b071e] border border-[#ff007f]/40 flex flex-col gap-1">
                     <span className="text-[10px] text-gray-400 font-pixel">FIRST TAP &lt; 5s RATE</span>
                     <span className="font-pixel text-lg text-[#ff007f] font-bold">
-                      {metrics.firstTapWithin5sRate}%
+                      {Number(metrics.firstTapWithin5sRate || 0)}%
                     </span>
                   </div>
                 </div>
@@ -304,23 +304,23 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   <div className="flex flex-col gap-1.5 text-xs font-mono-tech">
                     <div className="flex justify-between items-center text-gray-300">
                       <span>1. App Open</span>
-                      <span className="font-bold text-white">{metrics.funnel.appOpen}</span>
+                      <span className="font-bold text-white">{Number(metrics.funnel.appOpen || 0)}</span>
                     </div>
                     <div className="flex justify-between items-center text-gray-300">
                       <span>2. First Tap</span>
-                      <span className="font-bold text-white">{metrics.funnel.firstTap}</span>
+                      <span className="font-bold text-white">{Number(metrics.funnel.firstTap || 0)}</span>
                     </div>
                     <div className="flex justify-between items-center text-gray-300">
                       <span>3. First Round</span>
-                      <span className="font-bold text-white">{metrics.funnel.firstRound}</span>
+                      <span className="font-bold text-white">{Number(metrics.funnel.firstRound || 0)}</span>
                     </div>
                     <div className="flex justify-between items-center text-gray-300">
                       <span>4. Second Round</span>
-                      <span className="font-bold text-white">{metrics.funnel.secondRound}</span>
+                      <span className="font-bold text-white">{Number(metrics.funnel.secondRound || 0)}</span>
                     </div>
                     <div className="flex justify-between items-center text-gray-300">
                       <span>5. Invite Friend</span>
-                      <span className="font-bold text-[#00f5d4]">{metrics.funnel.inviteSent}</span>
+                      <span className="font-bold text-[#00f5d4]">{Number(metrics.funnel.inviteSent || 0)}</span>
                     </div>
                   </div>
                 </div>
