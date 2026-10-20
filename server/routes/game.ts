@@ -45,21 +45,11 @@ const handleStartRound = async (req: Request, res: Response) => {
 
         if (activeRoundRes.rows.length > 0) {
           const active = activeRoundRes.rows[0];
-          const ageMs = Date.now() - new Date(active.started_at).getTime();
-
-          if (ageMs < 40000) {
-            // Less than 40s ago - user already has an active round in progress
-            return {
-              status: 429,
-              json: {
-                error: 'Round already in progress',
-                activeRoundId: active.id,
-              },
-            };
-          } else {
-            // Abandoned round (>40s old), mark as rejected
-            await client.query(`UPDATE rounds SET status = 'rejected', flags = '{"reason":"abandoned"}' WHERE id = $1`, [active.id]);
-          }
+          // Gracefully close previous unfinished round so player is never locked out
+          await client.query(
+            `UPDATE rounds SET status = 'rejected', flags = '{"reason":"superseded_by_new_round"}' WHERE id = $1`,
+            [active.id]
+          );
         }
 
         // Authoritative seed generation:

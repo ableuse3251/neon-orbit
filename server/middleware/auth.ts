@@ -211,7 +211,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
         `INSERT INTO users (id, username, first_name, language, is_premium, last_seen_at)
          VALUES ($1, $2, $3, $4, $5, NOW())
          ON CONFLICT (id) DO UPDATE SET
-           username = EXCLUDED.username,
+           username = CASE WHEN users.is_registered = TRUE THEN users.username ELSE EXCLUDED.username END,
            first_name = EXCLUDED.first_name,
            language = EXCLUDED.language,
            is_premium = EXCLUDED.is_premium,

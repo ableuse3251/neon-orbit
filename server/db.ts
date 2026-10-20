@@ -96,7 +96,14 @@ export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(
     } catch (err) {
       console.error('Database query error:', err);
       // If connection-level error, mark as disconnected
-      if ((err as any).code && ['ECONNREFUSED', 'ETIMEDOUT', '57P01', '08006', '08001'].includes((err as any).code)) {
+      const errMsg = (err as any)?.message || '';
+      const errCode = (err as any)?.code || '';
+      if (
+        ['ECONNREFUSED', 'ETIMEDOUT', '57P01', '08006', '08001'].includes(errCode) ||
+        errMsg.includes('timeout') ||
+        errMsg.includes('Connection terminated') ||
+        errMsg.includes('connection refused')
+      ) {
         isDbConnected = false;
       }
       throw err;
@@ -165,7 +172,10 @@ export async function checkDbHealth(): Promise<{ status: 'ok' | 'degraded' | 'di
 }
 
 export function isDbActive(): boolean {
-  return isDbConnected && pool !== null;
+  if (config.nodeEnv === 'test') {
+    return isDbConnected && pool !== null;
+  }
+  return pool !== null && isDbConnected !== false;
 }
 export async function closeDb(): Promise<void> {
   if (pool) {

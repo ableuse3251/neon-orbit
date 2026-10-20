@@ -109,8 +109,38 @@ export function createApp() {
 
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: Number(process.env.RATE_LIMIT_MAX) || 150,
+    max: Number(process.env.RATE_LIMIT_MAX) || 1200,
     skip: () => process.env.SKIP_RATE_LIMIT === 'true' || process.env.NODE_ENV === 'test',
+    keyGenerator: (req: Request) => {
+      // 1. Extract Telegram User ID from Authorization / initData header for dedicated per-user quota
+      const authHeader = req.headers['authorization'] || (req.headers['x-init-data'] as string) || '';
+      if (typeof authHeader === 'string' && authHeader.length > 5) {
+        try {
+          const match = authHeader.match(/"id":\s*(\d+)/) || authHeader.match(/user=([^&]+)/);
+          if (match) {
+            if (match[0].startsWith('"id"')) {
+              return `user_${match[1]}`;
+            }
+            const decoded = decodeURIComponent(match[1]);
+            const parsed = JSON.parse(decoded);
+            if (parsed?.id) return `user_${parsed.id}`;
+          }
+        } catch {
+          // fallback to client IP
+        }
+      }
+      // 2. Client IP from standard reverse proxy headers
+      const forwarded = req.headers['x-forwarded-for'];
+      if (typeof forwarded === 'string' && forwarded.trim()) {
+        const clientIp = forwarded.split(',')[0].trim();
+        if (clientIp) return `ip_${clientIp}`;
+      }
+      const realIp = req.headers['x-real-ip'];
+      if (typeof realIp === 'string' && realIp.trim()) {
+        return `ip_${realIp.trim()}`;
+      }
+      return `ip_${req.ip || 'client'}`;
+    },
     message: { success: false, error: 'Too many requests.' },
     store: {
       init: () => {},

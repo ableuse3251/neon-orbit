@@ -534,7 +534,9 @@ async function query(text, params) {
       return res;
     } catch (err) {
       console.error("Database query error:", err);
-      if (err.code && ["ECONNREFUSED", "ETIMEDOUT", "57P01", "08006", "08001"].includes(err.code)) {
+      const errMsg = err?.message || "";
+      const errCode = err?.code || "";
+      if (["ECONNREFUSED", "ETIMEDOUT", "57P01", "08006", "08001"].includes(errCode) || errMsg.includes("timeout") || errMsg.includes("Connection terminated") || errMsg.includes("connection refused")) {
         isDbConnected = false;
       }
       throw err;
@@ -587,7 +589,10 @@ async function checkDbHealth() {
   }
 }
 function isDbActive() {
-  return isDbConnected && pool !== null;
+  if (config.nodeEnv === "test") {
+    return isDbConnected && pool !== null;
+  }
+  return pool !== null && isDbConnected !== false;
 }
 
 // server/migrations.ts
@@ -789,7 +794,7 @@ async function requireAuth(req, res, next) {
         `INSERT INTO users (id, username, first_name, language, is_premium, last_seen_at)
          VALUES ($1, $2, $3, $4, $5, NOW())
          ON CONFLICT (id) DO UPDATE SET
-           username = EXCLUDED.username,
+           username = CASE WHEN users.is_registered = TRUE THEN users.username ELSE EXCLUDED.username END,
            first_name = EXCLUDED.first_name,
            language = EXCLUDED.language,
            is_premium = EXCLUDED.is_premium,
@@ -2053,18 +2058,10 @@ var handleStartRound = async (req, res) => {
         );
         if (activeRoundRes.rows.length > 0) {
           const active = activeRoundRes.rows[0];
-          const ageMs = Date.now() - new Date(active.started_at).getTime();
-          if (ageMs < 4e4) {
-            return {
-              status: 429,
-              json: {
-                error: "Round already in progress",
-                activeRoundId: active.id
-              }
-            };
-          } else {
-            await client.query(`UPDATE rounds SET status = 'rejected', flags = '{"reason":"abandoned"}' WHERE id = $1`, [active.id]);
-          }
+          await client.query(
+            `UPDATE rounds SET status = 'rejected', flags = '{"reason":"superseded_by_new_round"}' WHERE id = $1`,
+            [active.id]
+          );
         }
         let seed;
         if (mode === "daily") {
@@ -6919,8 +6916,35 @@ function createApp() {
   const localRateLimitMap = /* @__PURE__ */ new Map();
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1e3,
-    max: Number(process.env.RATE_LIMIT_MAX) || 150,
+    max: Number(process.env.RATE_LIMIT_MAX) || 1200,
     skip: () => process.env.SKIP_RATE_LIMIT === "true" || process.env.NODE_ENV === "test",
+    keyGenerator: (req) => {
+      const authHeader = req.headers["authorization"] || req.headers["x-init-data"] || "";
+      if (typeof authHeader === "string" && authHeader.length > 5) {
+        try {
+          const match = authHeader.match(/"id":\s*(\d+)/) || authHeader.match(/user=([^&]+)/);
+          if (match) {
+            if (match[0].startsWith('"id"')) {
+              return `user_${match[1]}`;
+            }
+            const decoded = decodeURIComponent(match[1]);
+            const parsed = JSON.parse(decoded);
+            if (parsed?.id) return `user_${parsed.id}`;
+          }
+        } catch {
+        }
+      }
+      const forwarded = req.headers["x-forwarded-for"];
+      if (typeof forwarded === "string" && forwarded.trim()) {
+        const clientIp = forwarded.split(",")[0].trim();
+        if (clientIp) return `ip_${clientIp}`;
+      }
+      const realIp = req.headers["x-real-ip"];
+      if (typeof realIp === "string" && realIp.trim()) {
+        return `ip_${realIp.trim()}`;
+      }
+      return `ip_${req.ip || "client"}`;
+    },
     message: { success: false, error: "Too many requests." },
     store: {
       init: () => {
