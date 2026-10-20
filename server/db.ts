@@ -9,9 +9,11 @@ pg.types.setTypeParser(1082, (val: string) => val);
 
 export let pool: pg.Pool | null = null;
 let isDbConnected = false;
+let forceTestConnected = false;
 
 export function setDbConnected(connected: boolean) {
   isDbConnected = connected;
+  forceTestConnected = connected;
 }
 
 export function setPool(p: pg.Pool | null) {
@@ -53,6 +55,10 @@ if (config.databaseUrl) {
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 20000,
     });
+
+    if (config.nodeEnv !== 'test') {
+      isDbConnected = true;
+    }
 
     pool.on('error', (err) => {
       console.error('Unexpected PostgreSQL client error:', err);
@@ -173,9 +179,9 @@ export async function checkDbHealth(): Promise<{ status: 'ok' | 'degraded' | 'di
 
 export function isDbActive(): boolean {
   if (config.nodeEnv === 'test') {
-    return isDbConnected && pool !== null;
+    return pool !== null && forceTestConnected;
   }
-  return pool !== null && isDbConnected !== false;
+  return pool !== null && isDbConnected;
 }
 export async function closeDb(): Promise<void> {
   if (pool) {

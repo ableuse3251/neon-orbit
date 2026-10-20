@@ -28,6 +28,12 @@ interface AdminDashboardModalProps {
   onClose: () => void;
 }
 
+function safeNum(val: any, fallback = 0): number {
+  if (val === null || val === undefined || val === 'unavailable' || val === '') return fallback;
+  const n = Number(val);
+  return isNaN(n) ? fallback : n;
+}
+
 export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   currentConfig,
   onSaveConfig,
@@ -258,42 +264,42 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   <div className="p-3 rounded-xl bg-[#0b071e] border border-[#ffb703] flex flex-col gap-1 shadow-[0_0_10px_rgba(255,183,3,0.2)]">
                     <span className="text-[10px] text-gray-400 font-pixel">STARS REVENUE (XTR)</span>
                     <span className="font-pixel text-2xl text-[#ffb703] font-bold">
-                      {metrics.totalStarsRevenue} ⭐
+                      {safeNum(metrics.totalStarsRevenue)} ⭐
                     </span>
                   </div>
 
                   <div className="p-3 rounded-xl bg-[#0b071e] border border-[#00f5d4] flex flex-col gap-1 shadow-[0_0_10px_rgba(0,245,212,0.2)]">
                     <span className="text-[10px] text-gray-400 font-pixel">DAU / WAU</span>
                     <span className="font-pixel text-xl text-[#00f5d4] font-bold">
-                      {metrics.dau.toLocaleString()} / {metrics.wau.toLocaleString()}
+                      {safeNum(metrics.dau).toLocaleString()} / {safeNum(metrics.wau).toLocaleString()}
                     </span>
                   </div>
 
                   <div className="p-3 rounded-xl bg-[#0b071e] border border-[#9d4edd]/40 flex flex-col gap-1">
                     <span className="text-[10px] text-gray-400 font-pixel">RETENTION (D1/D7/D30)</span>
                     <span className="font-pixel text-xs text-white font-bold">
-                      D1: {Number(metrics.retentionD1 || 0)}% | D7: {Number(metrics.retentionD7 || 0)}% | D30: {Number(metrics.retentionD30 || 0)}%
+                      D1: {safeNum(metrics.retentionD1)}% | D7: {safeNum(metrics.retentionD7)}% | D30: {safeNum(metrics.retentionD30)}%
                     </span>
                   </div>
 
                   <div className="p-3 rounded-xl bg-[#0b071e] border border-[#9d4edd]/40 flex flex-col gap-1">
                     <span className="text-[10px] text-gray-400 font-pixel">K-FACTOR & ARPDAU</span>
                     <span className="font-pixel text-xs text-[#00f5d4] font-bold">
-                      K: {Number(metrics.kFactor || 0)} | ARPDAU: {Number(metrics.arpdau || 0)}⭐
+                      K: {safeNum(metrics.kFactor)} | ARPDAU: {safeNum(metrics.arpdau)}⭐
                     </span>
                   </div>
 
                   <div className="p-3 rounded-xl bg-[#0b071e] border border-[#ff007f]/40 flex flex-col gap-1">
                     <span className="text-[10px] text-gray-400 font-pixel">AVG ROUNDS / SESSION</span>
                     <span className="font-pixel text-lg text-[#ff007f] font-bold">
-                      {Number(metrics.avgRoundsPerSession || 0)}
+                      {safeNum(metrics.avgRoundsPerSession)}
                     </span>
                   </div>
 
                   <div className="p-3 rounded-xl bg-[#0b071e] border border-[#ff007f]/40 flex flex-col gap-1">
                     <span className="text-[10px] text-gray-400 font-pixel">FIRST TAP &lt; 5s RATE</span>
                     <span className="font-pixel text-lg text-[#ff007f] font-bold">
-                      {Number(metrics.firstTapWithin5sRate || 0)}%
+                      {safeNum(metrics.firstTapWithin5sRate)}%
                     </span>
                   </div>
                 </div>
@@ -304,23 +310,23 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   <div className="flex flex-col gap-1.5 text-xs font-mono-tech">
                     <div className="flex justify-between items-center text-gray-300">
                       <span>1. App Open</span>
-                      <span className="font-bold text-white">{Number(metrics.funnel.appOpen || 0)}</span>
+                      <span className="font-bold text-white">{safeNum(metrics.funnel?.appOpen)}</span>
                     </div>
                     <div className="flex justify-between items-center text-gray-300">
                       <span>2. First Tap</span>
-                      <span className="font-bold text-white">{Number(metrics.funnel.firstTap || 0)}</span>
+                      <span className="font-bold text-white">{safeNum(metrics.funnel?.firstTap)}</span>
                     </div>
                     <div className="flex justify-between items-center text-gray-300">
                       <span>3. First Round</span>
-                      <span className="font-bold text-white">{Number(metrics.funnel.firstRound || 0)}</span>
+                      <span className="font-bold text-white">{safeNum(metrics.funnel?.firstRound)}</span>
                     </div>
                     <div className="flex justify-between items-center text-gray-300">
                       <span>4. Second Round</span>
-                      <span className="font-bold text-white">{Number(metrics.funnel.secondRound || 0)}</span>
+                      <span className="font-bold text-white">{safeNum(metrics.funnel?.secondRound)}</span>
                     </div>
                     <div className="flex justify-between items-center text-gray-300">
                       <span>5. Invite Friend</span>
-                      <span className="font-bold text-[#00f5d4]">{Number(metrics.funnel.inviteSent || 0)}</span>
+                      <span className="font-bold text-[#00f5d4]">{safeNum(metrics.funnel?.inviteSent)}</span>
                     </div>
                   </div>
                 </div>
@@ -331,7 +337,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                     <span className="font-pixel text-xs">SUSPICIOUS / BANNED ACCOUNTS</span>
                   </div>
                   <span className="font-pixel text-lg text-[#ff0054] font-bold">
-                    {metrics.flaggedAutoclickersCount}
+                    {safeNum(metrics.flaggedAutoclickersCount)}
                   </span>
                 </div>
               </div>

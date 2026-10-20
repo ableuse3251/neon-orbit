@@ -38,9 +38,10 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   currentUserId,
   lang,
   onClose,
+  profile,
 }) => {
   const t = getTranslation(lang);
-  const [tab, setTab] = useState<'daily' | 'global' | 'friends'>('daily');
+  const [tab, setTab] = useState<'daily' | 'global' | 'friends'>('global');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<LeaderboardData | null>(null);
@@ -232,7 +233,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                 </span>
                 <div className="flex flex-col min-w-0">
                   <span className="font-bold text-white flex items-center gap-1 font-pixel text-[11px]">
-                    {lang === 'ru' ? 'Ваш Рекорд' : 'Your Rank'}
+                    {profile?.username || (lang === 'ru' ? 'Ваш Рекорд' : 'Your Rank')}
                     <span className="text-[9px] text-[#00f5d4] font-pixel">({t.youBadge})</span>
                   </span>
                   <span className="text-[9px] text-gray-400 flex items-center gap-1">
@@ -248,7 +249,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                 </div>
               </div>
               <span className="font-pixel text-sm font-bold text-[#00f5d4] tabular-nums shrink-0 ml-2">
-                {data.currentUser.score.toLocaleString()}
+                {(tab === 'daily' ? data.currentUser.score : Math.max(data.currentUser.score, profile?.highScore || 0)).toLocaleString()}
               </span>
             </div>
           </div>

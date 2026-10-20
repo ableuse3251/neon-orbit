@@ -480,6 +480,7 @@ var { Pool } = pg;
 pg.types.setTypeParser(1082, (val) => val);
 var pool = null;
 var isDbConnected = false;
+var forceTestConnected = false;
 if (config.databaseUrl) {
   try {
     const isServerless = process.env.VERCEL === "1" || process.env.SERVERLESS === "true" || Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
@@ -510,6 +511,9 @@ if (config.databaseUrl) {
       idleTimeoutMillis: 3e4,
       connectionTimeoutMillis: 2e4
     });
+    if (config.nodeEnv !== "test") {
+      isDbConnected = true;
+    }
     pool.on("error", (err) => {
       console.error("Unexpected PostgreSQL client error:", err);
       isDbConnected = false;
@@ -590,9 +594,9 @@ async function checkDbHealth() {
 }
 function isDbActive() {
   if (config.nodeEnv === "test") {
-    return isDbConnected && pool !== null;
+    return pool !== null && forceTestConnected;
   }
-  return pool !== null && isDbConnected !== false;
+  return pool !== null && isDbConnected;
 }
 
 // server/migrations.ts
@@ -5485,25 +5489,25 @@ router6.get("/admin/metrics", async (req, res) => {
       status: "unavailable",
       message: "Database inactive",
       metrics: {
-        dau: "unavailable",
-        wau: "unavailable",
-        retentionD1: "unavailable",
-        retentionD7: "unavailable",
-        retentionD30: "unavailable",
-        kFactor: "unavailable",
+        dau: 0,
+        wau: 0,
+        retentionD1: 0,
+        retentionD7: 0,
+        retentionD30: 0,
+        kFactor: 0,
         totalStarsRevenue: 0,
         totalRoundsPlayed: 0,
-        avgRoundsPerSession: "unavailable",
-        firstTapWithin5sRate: "unavailable",
-        conversionToPaying: "unavailable",
-        arpdau: "unavailable",
+        avgRoundsPerSession: 0,
+        firstTapWithin5sRate: 0,
+        conversionToPaying: 0,
+        arpdau: 0,
         flaggedAutoclickersCount: 0,
         funnel: {
-          appOpen: "unavailable",
-          firstTap: "unavailable",
-          firstRound: "unavailable",
-          secondRound: "unavailable",
-          inviteSent: "unavailable"
+          appOpen: 0,
+          firstTap: 0,
+          firstRound: 0,
+          secondRound: 0,
+          inviteSent: 0
         }
       }
     });

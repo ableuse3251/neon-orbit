@@ -781,6 +781,7 @@ export default function App() {
           currentUserId={profile.id}
           lang={profile.lang}
           onClose={() => closeModal('leaderboard')}
+          profile={profile}
         />
       )}
 
