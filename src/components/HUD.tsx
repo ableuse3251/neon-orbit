@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Pause, Play, Volume2, VolumeX, Shield, Zap, Target, Flame, Sparkles } from 'lucide-react';
+import { animate } from 'animejs';
 import { PowerupType } from '../types/game';
 import { getTranslation, Language } from '../utils/i18n';
 import { triggerHaptic } from '../utils/telegram';
@@ -36,6 +37,52 @@ export const HUD: React.FC<HUDProps> = ({
   const timePercent = Math.max(0, Math.min(100, (timeLeft / 45) * 100));
   const isTimeCritical = timeLeft <= 10;
 
+  // Anime.js animated score rolling counter (arcade odometer effect)
+  const [displayedScore, setDisplayedScore] = useState(score);
+  const scoreRef = useRef(score);
+  const multiplierBadgeRef = useRef<HTMLDivElement | null>(null);
+  const prevMultiplierRef = useRef(multiplier);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setDisplayedScore(score);
+      return;
+    }
+    if (score === scoreRef.current) return;
+    const startVal = scoreRef.current;
+    const targetVal = score;
+    scoreRef.current = targetVal;
+
+    const counterObj = { val: startVal };
+    try {
+      animate(counterObj, {
+        val: targetVal,
+        duration: 350,
+        ease: 'outExpo',
+        onUpdate: () => {
+          setDisplayedScore(Math.round(counterObj.val));
+        },
+      });
+    } catch {
+      setDisplayedScore(targetVal);
+    }
+  }, [score]);
+
+  // Anime.js spring bounce on multiplier badge when multiplier changes
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (multiplier !== prevMultiplierRef.current && multiplierBadgeRef.current) {
+      try {
+        animate(multiplierBadgeRef.current, {
+          scale: [1.25, 1],
+          duration: 360,
+          ease: 'outElastic(1.2, 0.45)',
+        });
+      } catch {}
+    }
+    prevMultiplierRef.current = multiplier;
+  }, [multiplier]);
+
   return (
     <div className="absolute inset-x-0 top-0 p-2.5 sm:p-4 pt-[max(0.75rem,env(safe-area-inset-top,0px))] pointer-events-none flex flex-col gap-2 z-20 font-mono-tech select-none">
       {/* Top Telemetry & Score Bar */}
@@ -61,13 +108,14 @@ export const HUD: React.FC<HUDProps> = ({
             </span>
           </div>
           <span className="text-xl sm:text-2xl font-pixel font-black text-white text-glow-cyan tabular-nums tracking-wider truncate">
-            {score.toLocaleString()}
+            {displayedScore.toLocaleString()}
           </span>
         </div>
 
         {/* Multiplier & Combo Badge */}
         <div className="flex flex-col items-center z-10">
           <div
+            ref={multiplierBadgeRef}
             className={`px-3 py-1 rounded-xl flex items-center gap-1.5 transition-all duration-300 shadow-md ${
               multiplier >= 5
                 ? 'bg-gradient-to-r from-[#00f5d4] via-[#7000ff] to-[#ff007f] text-black font-black text-glow-cyan shadow-[0_0_20px_rgba(0,245,212,0.8)] animate-pulse scale-105'

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Flame, Zap, Sparkles } from 'lucide-react';
+import { animate } from 'animejs';
 import { getTranslation, Language } from '../utils/i18n';
 
 export interface ComboMeterProps {
@@ -134,16 +135,13 @@ export const ComboMeter: React.FC<ComboMeterProps> = ({
   lang = 'en',
 }) => {
   const t = getTranslation(lang);
-  const [popKey, setPopKey] = useState(0);
   const prevComboRef = useRef(combo);
+  const prevTierRef = useRef(1);
 
-  // Trigger pop animation when combo count updates
-  useEffect(() => {
-    if (combo !== prevComboRef.current && combo > 0) {
-      setPopKey((k) => k + 1);
-    }
-    prevComboRef.current = combo;
-  }, [combo]);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const comboNumberRef = useRef<HTMLSpanElement | null>(null);
+  const badgeRef = useRef<HTMLDivElement | null>(null);
+  const pipsRef = useRef<HTMLDivElement | null>(null);
 
   // The Combo Meter activates and appears once the player lands consecutive hits (combo >= 2)
   const isVisible = combo >= 2;
@@ -155,6 +153,78 @@ export const ComboMeter: React.FC<ComboMeterProps> = ({
   const nextMultiplier = (multiplier + 0.25).toFixed(2);
   const isMaxTier = multiplier >= 5.0;
 
+  // Anime.js: Dynamic hit spring feedback on combo increment
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (combo > prevComboRef.current && isVisible) {
+      try {
+        // Elastic punch on card
+        if (cardRef.current) {
+          animate(cardRef.current, {
+            scale: [1.04, 1],
+            duration: 260,
+            ease: 'outBack(2)',
+          });
+        }
+
+        // Kinetic spring bounce on hit number with subtle rotation
+        if (comboNumberRef.current) {
+          const randomTilt = Math.random() > 0.5 ? 4 : -4;
+          animate(comboNumberRef.current, {
+            scale: [1.38, 1],
+            rotate: [randomTilt, 0],
+            duration: 280,
+            ease: 'outElastic(1.2, 0.4)',
+          });
+        }
+      } catch {}
+    }
+    prevComboRef.current = combo;
+  }, [combo, isVisible]);
+
+  // Anime.js: Celebratory tier upgrade shockwave when multiplier tier steps up
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const currentTier = config.tier;
+    if (currentTier > prevTierRef.current && isVisible) {
+      try {
+        if (cardRef.current) {
+          animate(cardRef.current, {
+            scale: [1.1, 1],
+            duration: 450,
+            ease: 'outElastic(1.4, 0.35)',
+          });
+        }
+        if (badgeRef.current) {
+          animate(badgeRef.current, {
+            scale: [1.35, 1],
+            duration: 380,
+            ease: 'outBack(2.2)',
+          });
+        }
+      } catch {}
+    }
+    prevTierRef.current = currentTier;
+  }, [config.tier, isVisible]);
+
+  // Anime.js: Pip fill bounce when current tier progress advances
+  useEffect(() => {
+    if (typeof window === 'undefined' || !pipsRef.current) return;
+    try {
+      const activePips = pipsRef.current.querySelectorAll('.pip-filled');
+      if (activePips.length > 0) {
+        const latestPip = activePips[activePips.length - 1];
+        animate(latestPip, {
+          scale: [0.65, 1.15, 1],
+          duration: 250,
+          ease: 'outBack(2)',
+        });
+      }
+    } catch {}
+  }, [hitsInCurrentTier, config.tier]);
+
   return (
     <div
       className={`w-full max-w-sm sm:max-w-md mx-auto transition-all duration-300 ease-out select-none pointer-events-none ${
@@ -164,6 +234,7 @@ export const ComboMeter: React.FC<ComboMeterProps> = ({
       }`}
     >
       <div
+        ref={cardRef}
         className={`relative rounded-xl p-2 sm:p-2.5 backdrop-blur-xl border ${config.cardBorder} ${config.cardBg} ${config.shadowClass} ${config.pulseClass} transition-all duration-500 overflow-hidden`}
       >
         {/* Subtle background ambient ray */}
@@ -187,8 +258,8 @@ export const ComboMeter: React.FC<ComboMeterProps> = ({
             </div>
             <div className="flex items-baseline gap-1 truncate">
               <span
-                key={popKey}
-                className={`font-pixel text-sm sm:text-base font-black ${config.textColor} ${config.textGlowClass} tabular-nums animate-combo-pop`}
+                ref={comboNumberRef}
+                className={`inline-block font-pixel text-sm sm:text-base font-black ${config.textColor} ${config.textGlowClass} tabular-nums`}
               >
                 {combo}
               </span>
@@ -200,6 +271,7 @@ export const ComboMeter: React.FC<ComboMeterProps> = ({
 
           {/* Tier Name Pill */}
           <div
+            ref={badgeRef}
             className={`px-2 sm:px-2.5 py-0.5 rounded-lg text-[9px] sm:text-[10px] tracking-widest font-pixel uppercase shadow-sm transition-all duration-300 shrink-0 ${config.badgeBg}`}
           >
             {config.name}
@@ -219,7 +291,7 @@ export const ComboMeter: React.FC<ComboMeterProps> = ({
         {/* Bottom Energy Gauge & Pips */}
         <div className="relative z-10 mt-1.5 flex flex-col gap-1">
           {/* 5-Pip Segmented Energy Meter */}
-          <div className="grid grid-cols-5 gap-1 w-full h-2 bg-[#0b051e] p-0.5 rounded-md border border-[#9d4edd]/30">
+          <div ref={pipsRef} className="grid grid-cols-5 gap-1 w-full h-2 bg-[#0b051e] p-0.5 rounded-md border border-[#9d4edd]/30">
             {[0, 1, 2, 3, 4].map((pipIndex) => {
               const isFilled = isMaxTier || pipIndex < hitsInCurrentTier;
               return (
@@ -227,7 +299,7 @@ export const ComboMeter: React.FC<ComboMeterProps> = ({
                   key={pipIndex}
                   className={`h-full rounded-sm transition-all duration-200 relative overflow-hidden ${
                     isFilled
-                      ? `bg-gradient-to-r ${config.barGradient} shadow-[0_0_8px_${config.accentColor}]`
+                      ? `pip-filled bg-gradient-to-r ${config.barGradient} shadow-[0_0_8px_${config.accentColor}]`
                       : 'bg-[#180e38]/60'
                   }`}
                 >

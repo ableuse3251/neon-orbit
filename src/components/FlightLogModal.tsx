@@ -1,5 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { RotateCcw, Share2, Trophy, Award, Zap, Crosshair, RefreshCw, AlertTriangle, ShieldCheck, Gamepad2, Home, X } from 'lucide-react';
+import { animate } from 'animejs';
 import { RoundStats, PlayerProfile } from '../types/game';
 import { shareChallengeLink, triggerHaptic } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
@@ -34,6 +35,73 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const cardCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const recordBadgeRef = useRef<HTMLDivElement | null>(null);
+
+  // Animated rolling stats using Anime.js
+  const [displayedScore, setDisplayedScore] = useState(0);
+  const [displayedAccuracy, setDisplayedAccuracy] = useState(0);
+  const [displayedHits, setDisplayedHits] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setDisplayedScore(stats.score);
+      setDisplayedAccuracy(stats.accuracy);
+      setDisplayedHits(stats.hits);
+      return;
+    }
+
+    // Modal card spring entrance
+    if (modalRef.current) {
+      try {
+        animate(modalRef.current, {
+          scale: [0.88, 1],
+          opacity: [0, 1],
+          duration: 400,
+          ease: 'outBack(1.4)',
+        });
+      } catch {}
+    }
+
+    // Record stamp effect
+    if (isNewRecord && recordBadgeRef.current) {
+      try {
+        animate(recordBadgeRef.current, {
+          scale: [2.2, 1],
+          rotate: [-6, 0],
+          duration: 500,
+          ease: 'outBounce',
+        });
+      } catch {}
+    }
+
+    // Rolling odometer counters
+    const counter = {
+      score: 0,
+      accuracy: 0,
+      hits: 0,
+    };
+
+    try {
+      animate(counter, {
+        score: stats.score,
+        accuracy: stats.accuracy,
+        hits: stats.hits,
+        duration: 800,
+        ease: 'outExpo',
+        onUpdate: () => {
+          setDisplayedScore(Math.round(counter.score));
+          setDisplayedAccuracy(Math.round(counter.accuracy));
+          setDisplayedHits(Math.round(counter.hits));
+        },
+      });
+    } catch {
+      setDisplayedScore(stats.score);
+      setDisplayedAccuracy(stats.accuracy);
+      setDisplayedHits(stats.hits);
+    }
+  }, [stats.score, stats.accuracy, stats.hits, isNewRecord]);
+
   const localizedRankTitle =
     profile.rankTitle === 'Fleet Admiral'
       ? t.rankAdmiral
@@ -51,7 +119,7 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in font-mono-tech select-none">
-      <div className="relative w-full max-w-md bg-[#120a2e] border-2 border-[#9d4edd] rounded-xl p-3.5 sm:p-5 shadow-[0_0_30px_rgba(157,78,221,0.3)] flex flex-col gap-3 sm:gap-4 text-white max-h-[94vh] sm:max-h-[90vh] overflow-y-auto">
+      <div ref={modalRef} className="relative w-full max-w-md bg-[#120a2e] border-2 border-[#9d4edd] rounded-xl p-3.5 sm:p-5 shadow-[0_0_30px_rgba(157,78,221,0.3)] flex flex-col gap-3 sm:gap-4 text-white max-h-[94vh] sm:max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-[#9d4edd]/40 pb-2.5 sm:pb-3 shrink-0">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#ff007f] animate-ping" />
@@ -142,7 +210,7 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
         )}
 
         {isNewRecord && (
-          <div className="bg-[#ff007f]/20 border border-[#ff007f] rounded-lg p-2.5 text-center flex items-center justify-center gap-2 animate-bounce">
+          <div ref={recordBadgeRef} className="bg-[#ff007f]/20 border border-[#ff007f] rounded-lg p-2.5 text-center flex items-center justify-center gap-2">
             <Trophy className="w-5 h-5 text-[#ffb703]" />
             <span className="font-pixel text-xs text-[#ffb703] uppercase tracking-wide">
               {t.newRecord}
@@ -154,7 +222,7 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
           <div className="flex items-baseline justify-between">
             <span className="text-xs text-gray-400 uppercase font-pixel">{t.finalScore}</span>
             <span className="font-pixel text-3xl font-bold text-[#00f5d4] text-glow-cyan tabular-nums">
-              {stats.score.toLocaleString()}
+              {displayedScore.toLocaleString()}
             </span>
           </div>
 
@@ -171,7 +239,7 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
               <Crosshair className="w-4 h-4 text-[#00f5d4]" />
               <div className="flex flex-col">
                 <span className="text-[10px] text-gray-400">{t.accuracy}</span>
-                <span className="font-pixel text-white text-sm">{stats.accuracy}%</span>
+                <span className="font-pixel text-white text-sm">{displayedAccuracy}%</span>
               </div>
             </div>
 
@@ -180,7 +248,7 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
               <div className="flex flex-col">
                 <span className="text-[10px] text-gray-400">{t.hitsTaps}</span>
                 <span className="font-pixel text-white text-sm">
-                  {stats.hits} / {stats.totalTaps}
+                  {displayedHits} / {stats.totalTaps}
                 </span>
               </div>
             </div>

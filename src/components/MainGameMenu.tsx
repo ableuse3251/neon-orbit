@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Share2, Sparkles, Zap, Crosshair, ShieldAlert } from 'lucide-react';
+import { animate, stagger } from 'animejs';
 import { PlayerProfile, LiveEventConfig } from '../types/game';
 import { getTranslation } from '../utils/i18n';
 import { triggerHaptic } from '../utils/telegram';
@@ -34,11 +35,47 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
   const t = getTranslation(profile.lang);
   const shipName = currentShip.name || profile.selectedShip;
 
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const shipCardRef = useRef<HTMLDivElement | null>(null);
+  const actionStackRef = useRef<HTMLDivElement | null>(null);
+  const launchBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Staggered Anime.js entrance for main menu elements
+    const targets = [headerRef.current, shipCardRef.current, actionStackRef.current].filter(Boolean);
+    if (targets.length > 0) {
+      try {
+        animate(targets, {
+          opacity: [0, 1],
+          translateY: [18, 0],
+          scale: [0.96, 1],
+          duration: 480,
+          delay: stagger(110),
+          ease: 'outBack(1.5)',
+        });
+      } catch {}
+    }
+
+    // Subtle Anime.js breathing spring on launch button
+    if (launchBtnRef.current) {
+      try {
+        animate(launchBtnRef.current, {
+          scale: [1, 1.025, 1],
+          duration: 2200,
+          ease: 'inOutSine',
+          loop: true,
+        });
+      } catch {}
+    }
+  }, []);
+
   return (
     <div className="absolute inset-0 z-20 flex flex-col items-center justify-between px-3 sm:px-4 py-2 sm:py-3.5 bg-gradient-to-b from-[#050212]/90 via-[#08041d]/85 to-[#04010d]/95 backdrop-blur-md overflow-y-auto max-w-md mx-auto w-full border-x border-[#00f5d4]/15 shadow-[0_0_60px_rgba(0,0,0,0.9)]">
       
       {/* Top Branding & Tactical Space Telemetry */}
-      <div className="flex flex-col items-center gap-1 animate-fade-in text-center w-full shrink-0">
+      <div ref={headerRef} className="flex flex-col items-center gap-1 text-center w-full shrink-0">
         <div className="flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#180b33]/90 border border-[#00f5d4]/40 text-[#00f5d4] text-[9px] sm:text-[10px] font-pixel tracking-widest uppercase shadow-[0_0_15px_rgba(0,245,212,0.25)]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#00f5d4] animate-ping" />
           <span>{t.tagline || 'RETRO SPACE FOOTBALL'}</span>
@@ -70,6 +107,7 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
 
       {/* Interactive Cosmic Ship Hangar Deck */}
       <div
+        ref={shipCardRef}
         onClick={() => {
           triggerHaptic('medium');
           onOpenModal('shop');
@@ -117,7 +155,7 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
       </div>
 
       {/* Main Launch Button & Tactical Action Stack */}
-      <div className="w-full max-w-sm flex flex-col gap-2 shrink-0 mb-1">
+      <div ref={actionStackRef} className="w-full max-w-sm flex flex-col gap-2 shrink-0 mb-1">
         {/* Launch Error Alert Banner */}
         {startRoundError && (
           <div className="w-full p-3 bg-gradient-to-r from-red-950/95 via-purple-950/90 to-red-950/95 border border-red-500/80 rounded-2xl text-red-100 text-xs text-center flex flex-col gap-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] animate-shake backdrop-blur-md">
@@ -141,6 +179,7 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
 
         {/* PRIMARY LAUNCH BUTTON */}
         <button
+          ref={launchBtnRef}
           type="button"
           onClick={() => {
             triggerHaptic('heavy');
