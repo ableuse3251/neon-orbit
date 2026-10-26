@@ -643,18 +643,48 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           nextTargetIndexRef.current++;
         }
 
-        // Levitating Drift Update Loop
+        // Velocity-Based Physics & Levitation Drift Loop
         for (let i = state.targets.length - 1; i >= 0; i--) {
           const target = state.targets[i];
 
-          // Linear drift + gentle floating sine wave oscillation
-          target.x += target.vx * deltaTime;
-          const floatOffset = Math.sin(currentTime * 0.002 + target.pulsePhase) * 0.18;
-          target.y += (target.vy + floatOffset) * deltaTime;
+          // 1. Angular Rotation Update
+          target.rotation += target.vRot * deltaTime;
 
-          // Bounce smoothly off viewport boundaries (X: 10% to 90%, Y: 14% to 78%)
-          if (target.x < 10 || target.x > 90) target.vx *= -1;
-          if (target.y < 14 || target.y > 78) target.vy *= -1;
+          // 2. Cosmic Micro-Gravity Forces
+          const driftFx = Math.sin(currentTime * 0.0015 + target.pulsePhase) * 1.8;
+          const driftFy = Math.cos(currentTime * 0.0012 + target.pulsePhase) * 1.8;
+          target.vx += driftFx * deltaTime;
+          target.vy += driftFy * deltaTime;
+
+          // Terminal Velocity Dampening
+          target.vx *= 0.998;
+          target.vy *= 0.998;
+
+          // Position Update
+          target.x += target.vx * deltaTime;
+          target.y += target.vy * deltaTime;
+
+          // 3. Elastic Edge Bounce Physics with Spin Impulse
+          const minX = 10, maxX = 90, minY = 14, maxY = 78;
+          if (target.x < minX) {
+            target.x = minX;
+            target.vx = -target.vx * 0.92;
+            target.vRot += (Math.random() - 0.5) * 1.5;
+          } else if (target.x > maxX) {
+            target.x = maxX;
+            target.vx = -target.vx * 0.92;
+            target.vRot += (Math.random() - 0.5) * 1.5;
+          }
+
+          if (target.y < minY) {
+            target.y = minY;
+            target.vy = -target.vy * 0.92;
+            target.vRot += (Math.random() - 0.5) * 1.5;
+          } else if (target.y > maxY) {
+            target.y = maxY;
+            target.vy = -target.vy * 0.92;
+            target.vRot += (Math.random() - 0.5) * 1.5;
+          }
 
           const targetAgeMs = elapsedMs - (target.spawnTimeMs ?? (target.spawnTime - state.roundStartTime));
           if (targetAgeMs > target.lifespan) {
@@ -794,6 +824,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
         ctx.save();
         ctx.translate(targetPxX, targetPxY);
+        ctx.rotate(target.rotation);
         ctx.scale(targetScale, targetScale);
 
         if (target.type === 'mine') {
