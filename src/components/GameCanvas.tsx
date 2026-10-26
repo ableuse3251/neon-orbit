@@ -765,30 +765,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       ctx.globalAlpha = 1.0;
 
-      // 3. 3D Synth Grid Horizon
-      state.gridOffset = (state.gridOffset + deltaTime * (state.multiplier >= 2 ? 140 : 80)) % perfConfig.gridStep;
-      ctx.strokeStyle = state.multiplier >= 2 ? '#00F5D4' : '#9D4EDD';
-      ctx.lineWidth = 1.5;
-      ctx.globalAlpha = 0.4;
 
-      const numGridRadial = 12;
-      for (let r = -numGridRadial; r <= numGridRadial; r++) {
-        const targetX = width / 2 + (r * width) / (numGridRadial * 0.5);
-        ctx.beginPath();
-        ctx.moveTo(vanishingX, vanishingY);
-        ctx.lineTo(targetX, height);
-        ctx.stroke();
-      }
-
-      // Moving Grid Bars
-      for (let yPct = 0.05; yPct <= 1.0; yPct += 0.08) {
-        const yPos = vanishingY + Math.pow(yPct, 2) * (height - vanishingY);
-        ctx.beginPath();
-        ctx.moveTo(0, yPos);
-        ctx.lineTo(width, yPos);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 1.0;
 
       // 4. Render Active Target Objects
       const elapsedMs = currentTime - state.roundStartTime;
