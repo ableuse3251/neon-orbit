@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { X, Trophy, Calendar, Users, RefreshCw, Loader2, EyeOff } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Trophy, Calendar, Users, RefreshCw, Loader2, EyeOff } from 'lucide-react';
 import { PlayerProfile } from '../types/game';
 import { getTranslation } from '../utils/i18n';
 import { RankShield3D } from './ui/Icons';
 import { audioManager } from '../utils/audio';
+import { KokonutModal, KokonutTabs, KokonutCard, KokonutBadge, KokonutButton } from './ui/kokonut';
 
 interface LeaderboardEntry {
   userId: number;
@@ -62,8 +62,10 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
       }
       const json = await res.json();
       setData(json);
-    } catch (err: any) {      setError(err?.message || 'Error connecting to satellite server');
-    } finally {      setLoading(false);
+    } catch (err: any) {
+      setError(err?.message || 'Error connecting to satellite server');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -91,196 +93,179 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md font-mono-tech select-none"
+    <KokonutModal
+      isOpen={true}
+      onClose={onClose}
+      title={t.rankingsTitle || 'Hall of Fame'}
+      icon={<Trophy className="w-5 h-5 text-[#ffb703]" />}
+      badge={
+        data?.seasonTitle ? (
+          <KokonutBadge variant="pink" size="sm">
+            {data.seasonTitle}
+          </KokonutBadge>
+        ) : undefined
+      }
+      maxWidth="lg"
     >
-      <motion.div
-        initial={{ scale: 0.93, opacity: 0, y: 14 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        transition={{ type: 'spring', damping: 24, stiffness: 320 }}
-        className="relative w-full max-w-md bg-[#120a2e]/95 border-2 border-[#9d4edd] rounded-2xl p-4 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-3.5 text-white max-h-[94vh] sm:max-h-[88vh]"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#9d4edd]/40 pb-2.5 shrink-0">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-[#ffb703] animate-bounce" />
-            <h2 className="font-pixel text-[11px] sm:text-xs text-[#00f5d4] uppercase tracking-wider">
-              {t.rankingsTitle}
-            </h2>
+      <div className="flex flex-col gap-3">
+        {/* Kokonut Segmented Tabs */}
+        <KokonutTabs
+          tabs={[
+            { id: 'daily', label: lang === 'ru' ? 'Ежедневный' : 'Daily', icon: <Calendar className="w-3.5 h-3.5" /> },
+            { id: 'global', label: lang === 'ru' ? 'За Всё Время' : 'Global', icon: <Trophy className="w-3.5 h-3.5" /> },
+            { id: 'friends', label: lang === 'ru' ? 'Друзья' : 'Friends', icon: <Users className="w-3.5 h-3.5" /> },
+          ]}
+          activeTab={tab}
+          onChange={(tId) => handleTabChange(tId as 'daily' | 'global' | 'friends')}
+          layoutId="leaderboardTabPill"
+        />
+
+        {/* Content Body */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-400">
+            <Loader2 className="w-8 h-8 text-[#00f5d4] animate-spin" />
+            <span className="font-pixel text-xs text-[#00f5d4]">
+              {lang === 'ru' ? 'ЗАГРУЗКА ДАННЫХ СПУТНИКА...' : 'SYNCING SATELLITE DATA...'}
+            </span>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.15, rotate: 90 }}
-            whileTap={{ scale: 0.88 }}
-            onMouseEnter={() => audioManager.playNavHover()}
-            onClick={() => {
-              audioManager.playModalClose();
-              onClose();
-            }}
-            className="p-1 rounded-lg bg-[#210b42] text-gray-400 hover:text-white border border-[#9d4edd]/30 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </motion.button>
-        </div>
-
-        {/* Tabs with Motion Sliding Indicator */}
-        <div className="flex items-center gap-1 bg-[#0b071e] p-1 rounded-xl border border-[#9d4edd]/30 shrink-0">
-          {[
-            { id: 'daily' as const, label: t.dailyTab, icon: <Calendar className="w-3 h-3" /> },
-            { id: 'global' as const, label: t.globalTab, icon: <Trophy className="w-3 h-3" /> },
-            { id: 'friends' as const, label: t.friendsTab, icon: <Users className="w-3 h-3" /> },
-          ].map((item) => (
-            <motion.button
-              key={item.id}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.96 }}
-              onMouseEnter={() => audioManager.playNavHover()}
-              onClick={() => {
-                audioManager.playNavTab(item.id);
-                handleTabChange(item.id);
-              }}
-              className={`relative flex-1 py-1.5 px-2 rounded-lg font-pixel text-[9px] sm:text-[10px] flex items-center justify-center gap-1 transition-colors z-10 ${
-                tab === item.id
-                  ? 'text-[#0b071e] font-bold'
-                  : 'text-gray-400 hover:text-white'
-              }`}
+        ) : error ? (
+          <KokonutCard variant="glow" hoverEffect={false} className="p-4 flex flex-col items-center text-center gap-3">
+            <p className="text-xs text-red-400 font-bold">{error}</p>
+            <KokonutButton
+              variant="outline"
+              size="sm"
+              onClick={() => fetchLeaderboard(tab)}
+              icon={<RefreshCw className="w-4 h-4" />}
             >
-              {tab === item.id && (
-                <motion.div
-                  layoutId="activeLeaderboardTabIndicator"
-                  className="absolute inset-0 bg-[#00f5d4] rounded-lg shadow-[0_0_12px_#00f5d4] -z-10"
-                  transition={{ type: 'spring', damping: 25, stiffness: 380 }}
-                />
-              )}
-              {item.icon}
-              <span>{item.label}</span>
-            </motion.button>
-          ))}
-        </div>
-
-        {/* Season Banner */}
-        <div className="bg-[#210b42]/80 border border-[#9d4edd]/40 rounded-xl p-2.5 flex items-center justify-between text-xs shrink-0 shadow-sm">
-          <span className="text-gray-300 font-pixel text-[10px] sm:text-[11px] truncate">
-            {data?.seasonTitle || t.seasonText}
-          </span>
-          <span className="text-[#ffb703] font-pixel text-[9px] sm:text-[10px] shrink-0 ml-2 font-bold">{t.endsIn}</span>
-        </div>
-
-        {/* Leaderboard List Content */}
-        <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1 min-h-[200px] max-h-[50vh] scrollbar-thin scrollbar-thumb-[#9d4edd]/40">
-          {loading ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-3 py-10 text-gray-400">
-              <Loader2 className="w-8 h-8 text-[#00f5d4] animate-spin" />
-              <span className="font-pixel text-xs text-[#00f5d4] animate-pulse">
-                SCANNING ORBITAL LEADERBOARD...
-              </span>
-            </div>
-          ) : error ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-2 py-8 text-center text-red-400 text-xs">
-              <span>{error}</span>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => fetchLeaderboard(tab)}
-                className="mt-2 py-1.5 px-3 rounded-lg bg-[#9d4edd]/20 border border-[#9d4edd] text-[#00f5d4] font-pixel text-[10px] flex items-center gap-1 hover:bg-[#9d4edd]/40"
-              >
-                <RefreshCw className="w-3 h-3" />
-                RETRY
-              </motion.button>
-            </div>
-          ) : !data || data.entries.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-2 py-10 text-center text-gray-400 text-xs px-4">
-              <Trophy className="w-8 h-8 text-gray-600 mb-1" />
-              <span>{t.emptyLeaderboard}</span>
-            </div>
-          ) : (
-            data.entries.map((entry: LeaderboardEntry, idx: number) => (
-              <motion.div
-                key={entry.userId}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(idx * 0.025, 0.4), duration: 0.2 }}
-                whileHover={{ scale: 1.01 }}
-                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-colors ${
-                  entry.isCurrentUser || String(entry.userId) === String(currentUserId)
-                    ? 'bg-[#00f5d4]/10 border-2 border-[#00f5d4] shadow-[0_0_15px_rgba(0,245,212,0.25)]'
-                    : 'bg-[#0b071e]/90 border-[#9d4edd]/30 hover:border-[#9d4edd]/60'
-                }`}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <RankShield3D tier={getRankBadgeTier(entry.rank)} size={30} />
-
-                  {entry.avatarUrl && (
-                    <img
-                      src={entry.avatarUrl}
-                      alt=""
-                      className="w-7 h-7 rounded-full object-cover border border-[#00f5d4] shrink-0"
-                    />
-                  )}
-
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-bold text-white flex items-center gap-1 truncate font-pixel text-[11px]">
-                      {entry.username || entry.firstName}
-                      {(entry.isCurrentUser || String(entry.userId) === String(currentUserId)) && (
-                        <span className="text-[9px] text-[#00f5d4] font-pixel shrink-0">({t.youBadge})</span>
-                      )}
+              {lang === 'ru' ? 'ПОВТОРИТЬ' : 'RETRY'}
+            </KokonutButton>
+          </KokonutCard>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {/* User Personal Rank Banner if not in Top 10 list */}
+            {data?.currentUser && !isUserInTopList && (
+              <KokonutCard variant="glow" hoverEffect={false} className="p-3 flex items-center justify-between border-[#ff007f]/50">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#ff007f]/20 border border-[#ff007f] flex items-center justify-center font-pixel text-xs text-[#ff007f]">
+                    #{data.currentUser.rank ?? '—'}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-pixel text-xs text-white font-bold">
+                      {lang === 'ru' ? 'ВАША ПОЗИЦИЯ' : 'YOUR POSITION'}
                     </span>
-                    <span className="text-[9px] text-gray-400 flex items-center gap-1">
-                      {entry.rankTitle}
+                    <span className="text-[10px] text-gray-400 font-sans">
+                      {data.currentUser.rankTitle}
                     </span>
                   </div>
                 </div>
 
-                <span className="font-pixel text-sm font-bold text-[#00f5d4] tabular-nums ml-2 shrink-0">
-                  {entry.score.toLocaleString()}
-                </span>
-              </motion.div>
-            ))
-          )}
-        </div>
-
-        {/* Current User Card if outside top 50 */}
-        {!loading && data?.currentUser && !isUserInTopList && (
-          <div className="pt-2 border-t border-[#9d4edd]/30">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-              className="flex items-center justify-between p-3 rounded-xl border-2 border-[#00f5d4] bg-[#00f5d4]/10 shadow-[0_0_12px_rgba(0,245,212,0.2)] text-xs"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="w-7 h-7 rounded-lg bg-[#00f5d4] text-[#0b071e] font-pixel text-[11px] flex items-center justify-center font-bold shrink-0">
-                  {data.currentUser.hideFromLeaderboard
-                    ? '?'
-                    : data.currentUser.rank
-                    ? `#${data.currentUser.rank}`
-                    : '-'}
-                </span>
-                <div className="flex flex-col min-w-0">
-                  <span className="font-bold text-white flex items-center gap-1 font-pixel text-[11px]">
-                    {profile?.username || (lang === 'ru' ? 'Ваш Рекорд' : 'Your Rank')}
-                    <span className="text-[9px] text-[#00f5d4] font-pixel">({t.youBadge})</span>
-                  </span>
-                  <span className="text-[9px] text-gray-400 flex items-center gap-1">
-                    {data.currentUser.hideFromLeaderboard ? (
-                      <span className="text-yellow-400 flex items-center gap-1">
-                        <EyeOff className="w-3 h-3" />
-                        {t.hiddenBadge}
-                      </span>
-                    ) : (
-                      data.currentUser.rankTitle
-                    )}
+                <div className="flex items-center gap-2">
+                  {data.currentUser.hideFromLeaderboard && (
+                    <KokonutBadge variant="gold" size="sm" icon={<EyeOff className="w-3 h-3" />}>
+                      HIDDEN
+                    </KokonutBadge>
+                  )}
+                  <span className="font-pixel text-sm text-[#00f5d4] font-bold tabular-nums">
+                    {data.currentUser.score.toLocaleString()}
                   </span>
                 </div>
+              </KokonutCard>
+            )}
+
+            {/* Podium Top 3 Cards Grid if available */}
+            {data?.entries && data.entries.length >= 3 && (
+              <div className="grid grid-cols-3 gap-2 my-1">
+                {/* 2nd Place */}
+                <KokonutCard variant="glass" hoverEffect={true} className="p-2.5 flex flex-col items-center text-center gap-1 border-gray-400/50">
+                  <span className="font-pixel text-[10px] text-gray-400">#2 SILVER</span>
+                  <div className="w-10 h-10 rounded-full border border-gray-300 bg-gray-800 flex items-center justify-center font-pixel text-xs font-bold text-gray-200">
+                    {data.entries[1].username.slice(0, 2).toUpperCase()}
+                  </div>
+                  <span className="font-pixel text-[10px] text-white truncate w-full">
+                    {data.entries[1].username}
+                  </span>
+                  <span className="font-pixel text-[10px] text-[#00f5d4] tabular-nums font-bold">
+                    {data.entries[1].score.toLocaleString()}
+                  </span>
+                </KokonutCard>
+
+                {/* 1st Place */}
+                <KokonutCard variant="glow" hoverEffect={true} className="p-3 flex flex-col items-center text-center gap-1 border-[#ffb703] scale-105 shadow-[0_0_20px_rgba(255,183,3,0.3)]">
+                  <span className="font-pixel text-[10px] text-[#ffb703] font-bold">#1 GOLD</span>
+                  <div className="w-12 h-12 rounded-full border-2 border-[#ffb703] bg-[#ffb703]/20 flex items-center justify-center font-pixel text-sm font-bold text-[#ffb703]">
+                    {data.entries[0].username.slice(0, 2).toUpperCase()}
+                  </div>
+                  <span className="font-pixel text-xs text-white truncate w-full font-bold">
+                    {data.entries[0].username}
+                  </span>
+                  <span className="font-pixel text-xs text-[#00f5d4] tabular-nums font-bold">
+                    {data.entries[0].score.toLocaleString()}
+                  </span>
+                </KokonutCard>
+
+                {/* 3rd Place */}
+                <KokonutCard variant="glass" hoverEffect={true} className="p-2.5 flex flex-col items-center text-center gap-1 border-amber-600/50">
+                  <span className="font-pixel text-[10px] text-amber-500">#3 BRONZE</span>
+                  <div className="w-10 h-10 rounded-full border border-amber-600 bg-amber-950 flex items-center justify-center font-pixel text-xs font-bold text-amber-400">
+                    {data.entries[2].username.slice(0, 2).toUpperCase()}
+                  </div>
+                  <span className="font-pixel text-[10px] text-white truncate w-full">
+                    {data.entries[2].username}
+                  </span>
+                  <span className="font-pixel text-[10px] text-[#00f5d4] tabular-nums font-bold">
+                    {data.entries[2].score.toLocaleString()}
+                  </span>
+                </KokonutCard>
               </div>
-              <span className="font-pixel text-sm font-bold text-[#00f5d4] tabular-nums shrink-0 ml-2">
-                {(tab === 'daily' ? data.currentUser.score : Math.max(data.currentUser.score, profile?.highScore || 0)).toLocaleString()}
-              </span>
-            </motion.div>
+            )}
+
+            {/* Leaderboard Entries List */}
+            <div className="flex flex-col gap-1.5 max-h-[260px] overflow-y-auto pr-1">
+              {data?.entries?.map((entry) => {
+                const isMe = entry.isCurrentUser || String(entry.userId) === String(currentUserId);
+                return (
+                  <KokonutCard
+                    key={entry.userId}
+                    variant={isMe ? 'glow' : 'glass'}
+                    hoverEffect={true}
+                    className={`flex items-center justify-between p-2.5 sm:p-3 border ${
+                      isMe ? 'border-[#00f5d4] shadow-[0_0_15px_rgba(0,245,212,0.3)]' : 'border-white/5'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-7 h-7 shrink-0 flex items-center justify-center font-pixel text-xs font-bold text-gray-300">
+                        #{entry.rank}
+                      </div>
+
+                      <RankShield3D tier={getRankBadgeTier(entry.rank)} size={24} />
+
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-pixel text-xs text-white truncate font-bold">
+                            {entry.username || entry.firstName}
+                          </span>
+                          {isMe && (
+                            <KokonutBadge variant="cyan" size="sm">
+                              YOU
+                            </KokonutBadge>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-gray-400 font-sans truncate">
+                          {entry.rankTitle}
+                        </span>
+                      </div>
+                    </div>
+
+                    <span className="font-pixel text-xs sm:text-sm text-[#00f5d4] font-bold tabular-nums shrink-0">
+                      {entry.score.toLocaleString()}
+                    </span>
+                  </KokonutCard>
+                );
+              })}
+            </div>
           </div>
         )}
-      </motion.div>
-    </motion.div>
+      </div>
+    </KokonutModal>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Check, Lock, Sparkles, Shield, Package, Sparkle } from 'lucide-react';
+import { Check, Lock, Sparkles, Shield, Package, Sparkle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { animate } from 'animejs';
 import { PlayerProfile, CosmeticCategory, Rarity, CosmeticItem } from '../types/game';
@@ -18,8 +18,8 @@ import {
   TitleCategoryIcon,
   MotionShipPreview,
   StardustCrystalIcon,
-  TactileButton,
 } from './ui/Icons';
+import { KokonutModal, KokonutTabs, KokonutCard, KokonutButton, KokonutBadge } from './ui/kokonut';
 
 interface CosmeticsShopModalProps {
   profile: PlayerProfile;
@@ -71,26 +71,26 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
     labelRu: string;
     icon: React.ReactNode;
   }> = [
-    { id: 'ship', labelEn: 'SHIPS', labelRu: 'КОРАБЛИ', icon: <ShipCategoryIcon size={18} /> },
-    { id: 'trail', labelEn: 'TRAILS', labelRu: 'СЛЕДЫ', icon: <TrailCategoryIcon size={18} /> },
-    { id: 'backdrop', labelEn: 'BACKDROPS', labelRu: 'ФОНЫ', icon: <BackdropCategoryIcon size={18} /> },
-    { id: 'explosion', labelEn: 'EXPLOSIONS', labelRu: 'ВЗРЫВЫ', icon: <ExplosionCategoryIcon size={18} /> },
-    { id: 'frame', labelEn: 'FRAMES', labelRu: 'РАМКИ', icon: <FrameCategoryIcon size={18} /> },
-    { id: 'theme', labelEn: 'THEMES', labelRu: 'ТЕМЫ', icon: <ThemeCategoryIcon size={18} /> },
-    { id: 'title', labelEn: 'TITLES', labelRu: 'ТИТУЛЫ', icon: <TitleCategoryIcon size={18} /> },
+    { id: 'ship', labelEn: 'SHIPS', labelRu: 'КОРАБЛИ', icon: <ShipCategoryIcon size={16} /> },
+    { id: 'trail', labelEn: 'TRAILS', labelRu: 'СЛЕДЫ', icon: <TrailCategoryIcon size={16} /> },
+    { id: 'backdrop', labelEn: 'BACKDROPS', labelRu: 'ФОНЫ', icon: <BackdropCategoryIcon size={16} /> },
+    { id: 'explosion', labelEn: 'EXPLOSIONS', labelRu: 'ВЗРЫВЫ', icon: <ExplosionCategoryIcon size={16} /> },
+    { id: 'frame', labelEn: 'FRAMES', labelRu: 'РАМКИ', icon: <FrameCategoryIcon size={16} /> },
+    { id: 'theme', labelEn: 'THEMES', labelRu: 'ТЕМЫ', icon: <ThemeCategoryIcon size={16} /> },
+    { id: 'title', labelEn: 'TITLES', labelRu: 'ТИТУЛЫ', icon: <TitleCategoryIcon size={16} /> },
   ];
 
-  const getRarityBadge = (rarity: Rarity) => {
+  const getRarityVariant = (rarity: Rarity): 'gold' | 'pink' | 'cyan' | 'purple' | 'glass' => {
     switch (rarity) {
       case 'legendary':
-        return { label: 'LEGENDARY', color: 'text-[#ffb703]', bg: 'bg-[#ffb703]/15 border-[#ffb703] shadow-[0_0_10px_#ffb703]' };
+        return 'gold';
       case 'epic':
-        return { label: 'EPIC', color: 'text-[#ff007f]', bg: 'bg-[#ff007f]/15 border-[#ff007f] shadow-[0_0_10px_#ff007f]' };
+        return 'pink';
       case 'rare':
-        return { label: 'RARE', color: 'text-[#00f5d4]', bg: 'bg-[#00f5d4]/15 border-[#00f5d4] shadow-[0_0_8px_#00f5d4]' };
+        return 'cyan';
       case 'common':
       default:
-        return { label: 'COMMON', color: 'text-gray-300', bg: 'bg-gray-800/40 border-gray-500' };
+        return 'glass';
     }
   };
 
@@ -230,112 +230,38 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
   const itemsInCategory = COSMETIC_ITEMS.filter((i) => i.category === activeCategory);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md font-mono-tech select-none"
+    <KokonutModal
+      isOpen={true}
+      onClose={onClose}
+      title={`${t.hangarTitle} (Dust Shop & Pilot Market)`}
+      icon={<Sparkles className="w-5 h-5 text-[#00f5d4] animate-pulse" />}
+      badge={
+        <KokonutBadge variant="gold" size="sm" icon={<StardustCrystalIcon size={12} />}>
+          <span ref={stardustCountRef}>{profile.stardust}</span>
+        </KokonutBadge>
+      }
+      maxWidth="xl"
     >
-      <motion.div
-        initial={{ scale: 0.93, opacity: 0, y: 14 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        transition={{ type: 'spring', damping: 24, stiffness: 320 }}
-        className="relative w-full max-w-lg bg-[#120a2e]/95 border-2 border-[#9d4edd] rounded-2xl p-3.5 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-2.5 sm:gap-3 text-white max-h-[94vh] sm:max-h-[92vh]"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#9d4edd]/40 pb-2 sm:pb-2.5">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-[#00f5d4] animate-pulse" />
-            <h2 className="font-pixel text-[11px] sm:text-xs text-[#00f5d4] uppercase tracking-wider">
-              {t.hangarTitle} (Dust Shop & Pilot Market)
-            </h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="flex items-center gap-1.5 bg-[#210b42] px-3 py-1 rounded-full border border-[#ffb703]/50 text-[#ffb703] shadow-[0_0_10px_rgba(255,183,3,0.3)]"
-            >
-              <StardustCrystalIcon size={14} />
-              <span ref={stardustCountRef} className="font-pixel text-xs font-bold">
-                {profile.stardust}
-              </span>
-            </motion.div>
-            <motion.button
-              whileHover={{ scale: 1.15, rotate: 90 }}
-              whileTap={{ scale: 0.88 }}
-              onMouseEnter={() => audioManager.playNavHover()}
-              onClick={() => {
-                audioManager.playModalClose();
-                onClose();
-              }}
-              className="p-1 text-gray-400 hover:text-white transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </motion.button>
-          </div>
-        </div>
-
-        {/* Tab Switcher: Individual Items vs Collections / Sets */}
-        <div className="flex gap-2 bg-[#0b071e] p-1 rounded-xl border border-[#9d4edd]/30 shrink-0">
-          <motion.button
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
-            onMouseEnter={() => audioManager.playNavHover()}
-            onClick={() => {
-              audioManager.playNavTab('shop');
-              triggerHaptic('selection');
-              setActiveTab('shop');
-            }}
-            className={`relative flex-1 py-1.5 rounded-lg font-pixel text-[10px] transition-colors flex items-center justify-center gap-1.5 z-10 ${
-              activeTab === 'shop'
-                ? 'text-white font-bold'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            {activeTab === 'shop' && (
-              <motion.div
-                layoutId="activeShopTabIndicator"
-                className="absolute inset-0 bg-[#9d4edd] rounded-lg shadow-[0_0_12px_#9d4edd] -z-10"
-                transition={{ type: 'spring', damping: 25, stiffness: 380 }}
-              />
-            )}
-            <Sparkle className="w-3.5 h-3.5" /> Individual Catalog (65+)
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
-            onMouseEnter={() => audioManager.playNavHover()}
-            onClick={() => {
-              audioManager.playNavTab('collections');
-              triggerHaptic('selection');
-              setActiveTab('collections');
-            }}
-            className={`relative flex-1 py-1.5 rounded-lg font-pixel text-[10px] transition-colors flex items-center justify-center gap-1.5 z-10 ${
-              activeTab === 'collections'
-                ? 'text-white font-bold'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            {activeTab === 'collections' && (
-              <motion.div
-                layoutId="activeShopTabIndicator"
-                className="absolute inset-0 bg-[#ff007f] rounded-lg shadow-[0_0_12px_#ff007f] -z-10"
-                transition={{ type: 'spring', damping: 25, stiffness: 380 }}
-              />
-            )}
-            <Package className="w-3.5 h-3.5" /> Collections & Bundles (-20%)
-          </motion.button>
-        </div>
+      <div className="flex flex-col gap-3">
+        {/* Tab Switcher: Individual Catalog vs Collections */}
+        <KokonutTabs
+          tabs={[
+            { id: 'shop', label: 'Individual Catalog (65+)', icon: <Sparkle className="w-3.5 h-3.5" /> },
+            { id: 'collections', label: 'Collections & Bundles (-20%)', icon: <Package className="w-3.5 h-3.5" /> },
+          ]}
+          activeTab={activeTab}
+          onChange={(tab) => setActiveTab(tab as 'shop' | 'collections')}
+          layoutId="cosmeticCatalogTabs"
+        />
 
         {activeTab === 'shop' ? (
           <>
-            {/* 7 Category Tabs with Custom Modern Vector Icons */}
-            <div className="grid grid-cols-7 gap-1 bg-[#0b071e] p-1 rounded-xl border border-[#9d4edd]/30 shrink-0 overflow-x-auto">
+            {/* 7 Category Tabs */}
+            <div className="grid grid-cols-7 gap-1 bg-[#0b061d]/90 p-1 rounded-2xl border border-[#00f5d4]/20 overflow-x-auto no-scrollbar">
               {categories.map((cat) => (
-                <motion.button
+                <button
                   key={cat.id}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.94 }}
-                  onMouseEnter={() => audioManager.playNavHover()}
+                  type="button"
                   onClick={() => {
                     audioManager.playNavTab(cat.id);
                     triggerHaptic('selection');
@@ -343,230 +269,214 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                     const first = COSMETIC_ITEMS.find((i) => i.category === cat.id);
                     if (first) setSelectedPreviewItem(first);
                   }}
-                  className={`relative py-1.5 rounded-lg flex flex-col items-center justify-center gap-1 text-[8px] font-pixel transition-colors z-10 ${
+                  className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 text-[8px] sm:text-[9px] font-pixel transition-all cursor-pointer ${
                     activeCategory === cat.id
-                      ? 'text-[#0b071e] font-bold'
-                      : 'text-gray-400 hover:text-white'
+                      ? 'bg-gradient-to-r from-[#00f5d4] to-[#33f7dd] text-[#080417] font-bold shadow-[0_0_12px_rgba(0,245,212,0.4)]'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  {activeCategory === cat.id && (
-                    <motion.div
-                      layoutId="activeCategoryPill"
-                      className="absolute inset-0 bg-[#00f5d4] rounded-lg shadow-[0_0_12px_#00f5d4] -z-10"
-                      transition={{ type: 'spring', damping: 25, stiffness: 380 }}
-                    />
-                  )}
                   {cat.icon}
-                  <span className="hidden sm:inline">
+                  <span className="truncate max-w-full">
                     {profile.lang === 'ru' ? cat.labelRu : cat.labelEn}
                   </span>
-                </motion.button>
+                </button>
               ))}
             </div>
 
-            {/* Fitting Room Interactive Live Preview Window */}
-            <div className="relative w-full h-28 sm:h-32 rounded-xl bg-[#0b071e] border-2 border-[#9d4edd]/50 flex items-center justify-between overflow-hidden p-3 shadow-inner shrink-0">
-              <div
-                className="absolute inset-0 opacity-20 animate-pulse"
-                style={{
-                  background: `radial-gradient(circle, ${selectedPreviewItem.previewColor} 0%, transparent 75%)`,
-                }}
-              />
-
-              <div className="relative flex items-center gap-3 z-10 w-full">
-                {/* 3D Motion Ship Previewer */}
-                <div className="shrink-0">
-                  <MotionShipPreview
-                    shipId={selectedPreviewItem.id}
-                    color={selectedPreviewItem.previewColor}
-                    accentColor={selectedPreviewItem.accentColor}
-                    size={90}
-                  />
-                </div>
-
-                <div className="flex flex-col min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-pixel text-xs sm:text-sm text-white truncate">
-                      {profile.lang === 'ru' ? selectedPreviewItem.nameRu : selectedPreviewItem.nameEn}
-                    </span>
-                  </div>
-                  <span className="text-[9px] text-gray-300 font-mono-tech mt-0.5 line-clamp-2">
-                    {profile.lang === 'ru' ? selectedPreviewItem.descRu : selectedPreviewItem.descEn}
-                  </span>
-
-                  <div className="mt-2 flex items-center gap-2">
-                    <span
-                      className={`text-[8px] font-pixel px-2 py-0.5 rounded border uppercase ${
-                        getRarityBadge(selectedPreviewItem.rarity).bg
-                      } ${getRarityBadge(selectedPreviewItem.rarity).color}`}
+            {/* Selected Item Spotlight Card */}
+            {selectedPreviewItem && (
+              <KokonutCard variant="glow" hoverEffect={false} className="flex flex-col sm:flex-row items-center gap-4 p-4">
+                <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-[#0a0518] border-2 border-[#00f5d4]/60 flex items-center justify-center overflow-hidden shrink-0 shadow-[0_0_20px_rgba(0,245,212,0.25)]">
+                  {selectedPreviewItem.category === 'ship' ? (
+                    <MotionShipPreview
+                      shipId={selectedPreviewItem.id}
+                      color={selectedPreviewItem.previewColor || '#00f5d4'}
+                      size={70}
+                    />
+                  ) : (
+                    <div
+                      className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg shadow-inner"
+                      style={{ backgroundColor: `${selectedPreviewItem.previewColor || '#00f5d4'}30`, color: selectedPreviewItem.previewColor || '#00f5d4' }}
                     >
-                      {selectedPreviewItem.rarity}
-                    </span>
-                    <span className="text-[8px] text-[#00f5d4] font-pixel animate-pulse">
-                      ⚡ Click ship for plasma test fire
-                    </span>
+                      ✦
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col justify-between flex-1 w-full gap-2 text-center sm:text-left">
+                  <div>
+                    <div className="flex items-center justify-center sm:justify-start gap-2">
+                      <h4 className="font-pixel text-xs sm:text-sm text-white font-bold">
+                        {profile.lang === 'ru' ? selectedPreviewItem.nameRu : selectedPreviewItem.nameEn}
+                      </h4>
+                      <KokonutBadge variant={getRarityVariant(selectedPreviewItem.rarity)} size="sm">
+                        {selectedPreviewItem.rarity}
+                      </KokonutBadge>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-1 font-sans">
+                      {profile.lang === 'ru' ? selectedPreviewItem.descRu : selectedPreviewItem.descEn}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-center sm:justify-start gap-2 pt-1">
+                    {isEquipped(selectedPreviewItem) ? (
+                      <KokonutButton variant="glow" size="sm" disabled icon={<Check className="w-4 h-4" />}>
+                        {profile.lang === 'ru' ? 'ЭКИПИРОВАНО' : 'EQUIPPED'}
+                      </KokonutButton>
+                    ) : isUnlocked(selectedPreviewItem) ? (
+                      <KokonutButton
+                        variant="glow"
+                        size="sm"
+                        isLoading={loadingItemId === selectedPreviewItem.id}
+                        onClick={() => handleEquip(selectedPreviewItem)}
+                      >
+                        {profile.lang === 'ru' ? 'ЭКИПИРОВАТЬ' : 'EQUIP'}
+                      </KokonutButton>
+                    ) : (
+                      <KokonutButton
+                        variant="shimmer"
+                        size="sm"
+                        isLoading={loadingItemId === selectedPreviewItem.id}
+                        onClick={() => handleBuy(selectedPreviewItem)}
+                        icon={<StardustCrystalIcon size={14} color="#ffb703" />}
+                      >
+                        {selectedPreviewItem.priceStardust.toLocaleString()} STARDUST
+                      </KokonutButton>
+                    )}
                   </div>
                 </div>
-              </div>
-            </div>
+              </KokonutCard>
+            )}
 
-            {/* Item Grid */}
-            <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-2 pr-1 max-h-[34vh]">
+            {/* Catalog Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1">
               {itemsInCategory.map((item) => {
                 const unlocked = isUnlocked(item);
                 const equipped = isEquipped(item);
-                const rarityInfo = getRarityBadge(item.rarity);
-                const name = profile.lang === 'ru' ? item.nameRu : item.nameEn;
+                const selected = selectedPreviewItem?.id === item.id;
 
                 return (
-                  <motion.div
+                  <KokonutCard
                     key={item.id}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    variant={selected ? 'glow' : 'glass'}
                     onClick={() => {
-                      triggerHaptic('selection');
+                      audioManager.playNavHover();
                       setSelectedPreviewItem(item);
                     }}
-                    className={`p-2.5 rounded-xl border flex flex-col justify-between gap-2 cursor-pointer transition-all ${
-                      selectedPreviewItem.id === item.id
-                        ? 'border-[#00f5d4] bg-[#00f5d4]/10 shadow-[0_0_12px_rgba(0,245,212,0.3)]'
-                        : 'border-[#9d4edd]/25 bg-[#0b071e] hover:border-[#9d4edd]/60'
+                    className={`p-3 cursor-pointer flex flex-col items-center gap-2 border text-center transition-all ${
+                      selected ? 'border-[#00f5d4] shadow-[0_0_15px_rgba(0,245,212,0.3)]' : 'border-white/10'
                     }`}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-7 h-7 rounded-lg flex items-center justify-center text-xs border"
-                          style={{
-                            backgroundColor: `${item.previewColor}20`,
-                            borderColor: item.previewColor,
-                          }}
-                        >
-                          {item.iconSymbol}
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-pixel text-[10px] text-white truncate max-w-[110px]">
-                            {name}
-                          </span>
-                          <span className={`text-[7px] font-pixel ${rarityInfo.color}`}>
-                            {item.rarity.toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1 border-t border-[#9d4edd]/15">
-                      {equipped ? (
-                        <span className="w-full py-1 bg-[#00f5d4] text-[#0b071e] font-pixel text-[9px] font-bold rounded flex items-center justify-center gap-1 shadow-[0_0_8px_#00f5d4]">
-                          <Check className="w-3 h-3" /> {t.equippedBadge}
-                        </span>
-                      ) : unlocked ? (
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEquip(item);
-                          }}
-                          className="w-full py-1 bg-[#210b42] border border-[#9d4edd] hover:border-[#00f5d4] text-white font-pixel text-[9px] rounded transition-colors"
-                        >
-                          {t.equipBtn}
-                        </motion.button>
+                    <div className="relative w-12 h-12 rounded-xl bg-[#0a0518] flex items-center justify-center overflow-hidden">
+                      {item.category === 'ship' ? (
+                        <MotionShipPreview shipId={item.id} color={item.previewColor || '#00f5d4'} size={36} />
                       ) : (
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleBuy(item);
-                          }}
-                          className={`w-full py-1 text-white font-pixel text-[9px] font-bold rounded flex items-center justify-center gap-1 ${
-                            profile.stardust >= item.priceStardust
-                              ? 'bg-[#ff007f] hover:bg-[#ff007f]/90 shadow-[0_0_8px_#ff007f]'
-                              : 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                          }`}
-                        >
-                          <Lock className="w-2.5 h-2.5" />
-                          <span>{item.priceStardust} Dust</span>
-                        </motion.button>
+                        <span className="text-base" style={{ color: item.previewColor || '#00f5d4' }}>
+                          ✦
+                        </span>
+                      )}
+                      {!unlocked && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <Lock className="w-4 h-4 text-gray-400" />
+                        </div>
                       )}
                     </div>
-                  </motion.div>
+
+                    <div className="flex flex-col items-center min-w-0 w-full">
+                      <span className="font-pixel text-[10px] text-white truncate w-full">
+                        {profile.lang === 'ru' ? item.nameRu : item.nameEn}
+                      </span>
+                      {equipped ? (
+                        <KokonutBadge variant="cyan" size="sm" className="mt-1">
+                          EQUIPPED
+                        </KokonutBadge>
+                      ) : unlocked ? (
+                        <KokonutBadge variant="glass" size="sm" className="mt-1">
+                          UNLOCKED
+                        </KokonutBadge>
+                      ) : (
+                        <span className="text-[10px] text-[#ffb703] font-pixel flex items-center gap-0.5 mt-1 font-bold">
+                          <StardustCrystalIcon size={10} color="#ffb703" />
+                          {item.priceStardust.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </KokonutCard>
                 );
               })}
             </div>
           </>
         ) : (
           /* Collections & Bundles View */
-          <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1 max-h-[46vh]">
-            <p className="text-[10px] text-gray-300 font-mono-tech px-1">
-              Complete set bundles with a <span className="text-[#00f5d4] font-bold">15%–20% discount</span>. All unlocked items automatically sync!
-            </p>
+          <div className="flex flex-col gap-3 max-h-[380px] overflow-y-auto pr-1">
             {COSMETIC_COLLECTIONS.map((coll) => {
               const missingIds = coll.itemIds.filter((id) => !profile.unlockedCosmetics.includes(id));
-              const missingItems = COSMETIC_ITEMS.filter((i) => missingIds.includes(i.id));
-              const originalPrice = missingItems.reduce((acc, i) => acc + i.priceStardust, 0);
-              const discountedPrice = Math.round(originalPrice * (1 - coll.discountPercent / 100));
-              const isFullyUnlocked = missingIds.length === 0;
+              const isOwned = missingIds.length === 0;
+              const items = COSMETIC_ITEMS.filter((i) => coll.itemIds.includes(i.id));
+              const totalPrice = items.reduce((acc, i) => acc + i.priceStardust, 0);
+              const discountedPrice = Math.round(totalPrice * (1 - coll.discountPercent / 100));
 
               return (
-                <motion.div
-                  key={coll.id}
-                  whileHover={{ scale: 1.01 }}
-                  className="p-3.5 rounded-xl border border-[#9d4edd]/40 bg-[#0b071e] flex flex-col gap-2.5 shadow-md"
-                  style={{ borderColor: coll.previewColor }}
-                >
+                <KokonutCard key={coll.id} variant="glow" hoverEffect={false} className="flex flex-col gap-3 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Package className="w-5 h-5 text-[#ffb703]" />
-                      <div>
-                        <h3 className="font-pixel text-xs text-white">
-                          {profile.lang === 'ru' ? coll.nameRu : coll.nameEn}
-                        </h3>
-                        <span className="text-[9px] text-[#ffb703] font-pixel">
-                          Bundle Discount: -{coll.discountPercent}%
-                        </span>
-                      </div>
+                    <div>
+                      <h4 className="font-pixel text-xs sm:text-sm text-[#00f5d4] font-bold">
+                        {profile.lang === 'ru' ? coll.nameRu : coll.nameEn}
+                      </h4>
+                      <p className="text-[11px] text-gray-400 font-sans">
+                        {coll.discountPercent}% OFF • {coll.itemIds.length} ITEMS
+                      </p>
                     </div>
-                    <span className="text-[9px] font-pixel px-2 py-1 bg-[#210b42] rounded-lg border border-[#9d4edd]/40">
-                      {coll.itemIds.length} Items Set
-                    </span>
+                    <KokonutBadge variant="pink" size="md">
+                      -{coll.discountPercent}% OFF
+                    </KokonutBadge>
                   </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t border-[#9d4edd]/20">
-                    {isFullyUnlocked ? (
-                      <span className="w-full py-1.5 bg-[#00f5d4]/20 border border-[#00f5d4] text-[#00f5d4] font-pixel text-[10px] font-bold rounded flex items-center justify-center gap-1">
-                        <Check className="w-3.5 h-3.5" /> Collection Fully Owned
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {items.map((it) => (
+                      <div key={it.id} className="p-2 rounded-xl bg-[#090417] border border-white/10 flex flex-col items-center gap-1 text-center">
+                        <span className="font-pixel text-[9px] text-white truncate w-full">
+                          {profile.lang === 'ru' ? it.nameRu : it.nameEn}
+                        </span>
+                        <KokonutBadge variant={getRarityVariant(it.rarity)} size="sm">
+                          {it.rarity}
+                        </KokonutBadge>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="line-through text-gray-500 text-xs font-mono">
+                        {totalPrice.toLocaleString()} STARDUST
                       </span>
+                      <span className="text-[#ffb703] font-pixel text-xs sm:text-sm font-bold flex items-center gap-1">
+                        <StardustCrystalIcon size={14} color="#ffb703" />
+                        {discountedPrice.toLocaleString()}
+                      </span>
+                    </div>
+
+                    {isOwned ? (
+                      <KokonutButton variant="glow" size="sm" disabled icon={<Check className="w-4 h-4" />}>
+                        {profile.lang === 'ru' ? 'КУПЛЕНО' : 'BUNDLE OWNED'}
+                      </KokonutButton>
                     ) : (
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.96 }}
+                      <KokonutButton
+                        variant="shimmer"
+                        size="sm"
+                        isLoading={loadingItemId === coll.id}
                         onClick={() => handleBuyCollection(coll)}
-                        disabled={profile.stardust < discountedPrice}
-                        className={`w-full py-1.5 font-pixel text-[10px] font-bold rounded flex items-center justify-center gap-1 ${
-                          profile.stardust >= discountedPrice
-                            ? 'bg-[#ff007f] hover:bg-[#ff007f]/90 text-white shadow-[0_0_10px_#ff007f]'
-                            : 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                        }`}
                       >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>Buy Missing ({discountedPrice} Stardust)</span>
-                      </motion.button>
+                        {profile.lang === 'ru' ? 'КУПИТЬ СЕТ' : 'BUY SET'}
+                      </KokonutButton>
                     )}
                   </div>
-                </motion.div>
+                </KokonutCard>
               );
             })}
           </div>
         )}
-
-        {/* Fair Play Footer Banner */}
-        <div className="p-2 rounded-lg bg-[#0b071e] border border-[#9d4edd]/20 flex items-center justify-center gap-2 text-[10px] text-gray-400 text-center font-mono-tech shrink-0">
-          <Shield className="w-3.5 h-3.5 text-[#00f5d4]" />
-          <span>Cosmetics only. Zero impact on score or rankings!</span>
-        </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </KokonutModal>
   );
 };

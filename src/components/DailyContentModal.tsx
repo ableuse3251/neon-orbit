@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { X, Sparkles, Flame, Shield, Check, Calendar, Zap, AlertCircle } from 'lucide-react';
+import { Sparkles, Flame, Shield, Check, Calendar, Loader2 } from 'lucide-react';
 import { api } from '../utils/api';
 import { getTranslation, Language } from '../utils/i18n';
 import { triggerHaptic } from '../utils/telegram';
-import { StardustCrystalIcon, TactileButton } from './ui/Icons';
+import { StardustCrystalIcon } from './ui/Icons';
+import { KokonutModal, KokonutCard, KokonutProgress, KokonutButton, KokonutBadge } from './ui/kokonut';
 
 interface DailyContentModalProps {
   isOpen: boolean;
@@ -76,203 +77,111 @@ export const DailyContentModal: React.FC<DailyContentModalProps> = ({ isOpen, la
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-mono-tech select-none">
-      <div className="relative w-full max-w-lg bg-[#120a2e]/95 border-2 border-[#00f5d4] rounded-2xl p-4 sm:p-5 shadow-[0_0_35px_rgba(0,245,212,0.35)] flex flex-col gap-3 text-white max-h-[92vh]">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#00f5d4]/40 pb-2.5 shrink-0">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-[#00f5d4] animate-pulse" />
-            <h2 className="font-pixel text-[11px] sm:text-xs text-[#00f5d4] uppercase tracking-wider">
-              {lang === 'ru' ? 'ЕЖЕДНЕВНЫЙ КОНТЕНТ & КВЕСТЫ' : 'DAILY OPERATIONS HUB'}
-            </h2>
+    <KokonutModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={lang === 'ru' ? 'Ежедневный Контент & Квесты' : 'Daily Operations Hub'}
+      icon={<Calendar className="w-5 h-5 text-[#00f5d4] animate-pulse" />}
+      maxWidth="lg"
+    >
+      <div className="flex flex-col gap-3">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-2 text-gray-400">
+            <Loader2 className="w-8 h-8 text-[#00f5d4] animate-spin" />
+            <span className="font-pixel text-xs text-[#00f5d4]">
+              {lang === 'ru' ? 'СИНХРОНИЗАЦИЯ КВЕСТОВ...' : 'SYNCING OPERATIONS...'}
+            </span>
           </div>
-          <button
-            onClick={() => {
-              triggerHaptic('selection');
-              onClose();
-            }}
-            className="p-1.5 rounded-lg bg-[#210b42] text-gray-400 hover:text-white border border-[#9d4edd]/30 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content body */}
-        <div className="flex-1 overflow-y-auto py-1 space-y-4 pr-1 max-h-[75vh]">
-          {error && (
-            <div className="p-3 bg-[#ff0054]/20 border border-[#ff0054] rounded-xl text-xs text-[#ff0054] flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {loading ? (
-            <div className="flex items-center justify-center py-12 text-[#00f5d4] font-pixel text-xs animate-pulse gap-2">
-              <Sparkles className="w-4 h-4 animate-spin" />
-              <span>{lang === 'ru' ? 'СИНХРОНИЗАЦИЯ С ЕЖЕДНЕВНЫМ ЦЕНТРОМ...' : 'SYNCHRONIZING DAILY OPERATIONS...'}</span>
-            </div>
-          ) : (
-            <>
-              {/* Golden Hour Banner */}
-              {status?.goldenHour && (
-                <div className="p-3.5 bg-gradient-to-r from-[#ffb703]/25 via-[#210b42] to-[#ffb703]/10 border-2 border-[#ffb703] rounded-xl flex items-center justify-between shadow-[0_0_15px_rgba(255,183,3,0.3)]">
-                  <div>
-                    <span className="text-[10px] font-pixel font-bold text-[#ffb703] uppercase tracking-widest flex items-center gap-1">
-                      <Zap className="w-3.5 h-3.5 fill-current text-[#ffb703]" />
-                      {lang === 'ru' ? 'Золотой Час Активен!' : 'Golden Hour Active!'}
+        ) : (
+          <>
+            {/* Status Banner */}
+            {status && (
+              <KokonutCard variant="glow" hoverEffect={false} className="p-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Flame className="w-6 h-6 text-[#ff007f] animate-pulse" />
+                  <div className="flex flex-col">
+                    <span className="font-pixel text-xs text-white font-bold">
+                      {status.streak} {lang === 'ru' ? 'Дней Серии' : 'Days Streak'}
                     </span>
-                    <h3 className="text-xs font-bold text-white mt-1 font-pixel">{status.goldenHour.title}</h3>
-                    <p className="text-[10px] text-gray-300 font-mono-tech mt-0.5">
-                      x{status.goldenHour.multiplier} {lang === 'ru' ? 'множитель очков за все раунды' : 'score multiplier for all rounds'}
-                    </p>
+                    <span className="text-[10px] text-gray-400 font-sans">
+                      {status.streakProtected
+                        ? lang === 'ru'
+                          ? 'Защита серии активна!'
+                          : 'Streak Protection Active!'
+                        : lang === 'ru'
+                        ? 'Выполняйте задания каждый день'
+                        : 'Complete operations daily'}
+                    </span>
                   </div>
-                  <div className="text-3xl animate-bounce">⚡</div>
                 </div>
-              )}
 
-              {/* Streaks Widget */}
-              {status?.streak && (
-                <div className="p-3.5 bg-[#0b071e] border border-[#00f5d4]/40 rounded-xl flex items-center justify-between shadow-md">
-                  <div>
-                    <span className="text-[10px] text-[#00f5d4] font-pixel uppercase tracking-wider flex items-center gap-1">
-                      <Flame className="w-3.5 h-3.5 text-[#ff007f]" />
-                      {lang === 'ru' ? 'Стрик Активности' : 'Activity Streak'}
-                    </span>
-                    <div className="text-xl font-pixel text-white font-bold mt-1 flex items-center gap-2">
-                      🔥 {status.streak.current_streak} {lang === 'ru' ? 'Дней' : 'Days'}
-                    </div>
-                    <p className="text-[10px] text-gray-400 font-mono-tech mt-0.5">
-                      {lang === 'ru' ? `Заморозок осталось: ${status.streak.streak_freezes_left}` : `Freezes left: ${status.streak.streak_freezes_left}`}
-                    </p>
-                  </div>
-                  <button
+                {!status.streakProtected && status.canProtect && (
+                  <KokonutButton
+                    variant="shimmer"
+                    size="sm"
                     onClick={handleProtectStreak}
-                    disabled={status.streak.streak_freezes_left <= 0 || status.streak.is_protected}
-                    className={`px-3 py-2 text-[10px] font-pixel font-bold rounded-xl transition-all flex items-center gap-1.5 ${
-                      status.streak.is_protected
-                        ? 'bg-[#00f5d4]/20 text-[#00f5d4] border border-[#00f5d4]'
-                        : status.streak.streak_freezes_left > 0
-                        ? 'bg-[#00f5d4] text-[#0b071e] hover:bg-[#00f5d4]/90 shadow-[0_0_12px_#00f5d4]'
-                        : 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                    }`}
+                    icon={<Shield className="w-3.5 h-3.5" />}
                   >
-                    <Shield className="w-3.5 h-3.5" />
-                    {status.streak.is_protected
-                      ? (lang === 'ru' ? 'Защищено' : 'Protected')
-                      : (lang === 'ru' ? 'Заморозить' : 'Use Freeze')}
-                  </button>
-                </div>
-              )}
+                    {lang === 'ru' ? 'ЗАЩИТА СЕРИИ' : 'PROTECT STREAK'}
+                  </KokonutButton>
+                )}
+              </KokonutCard>
+            )}
 
-              {/* Limited Events */}
-              {status?.limitedEvents && status.limitedEvents.length > 0 && (
-                <div>
-                  <h3 className="text-[10px] font-pixel text-[#ff007f] uppercase tracking-widest mb-2">
-                    {lang === 'ru' ? 'Лимитированные события' : 'Limited Events'}
-                  </h3>
-                  <div className="space-y-2">
-                    {status.limitedEvents.map((ev: any) => (
-                      <div key={ev.id} className="p-3 bg-[#210b42]/80 border border-[#ff007f]/50 rounded-xl flex items-center justify-between">
-                        <div>
-                          <h4 className="text-xs font-bold font-pixel text-white">
-                            {lang === 'ru' ? ev.title_ru : ev.title_en}
-                          </h4>
-                          <p className="text-[10px] text-gray-300 font-mono-tech mt-0.5">
-                            Theme: {ev.theme_slug}
-                          </p>
-                        </div>
-                        <span className="text-[9px] px-2.5 py-1 bg-[#ff007f]/20 border border-[#ff007f] rounded-lg text-[#ff007f] font-pixel">
-                          ACTIVE
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Daily Quests */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-[10px] font-pixel text-[#00f5d4] uppercase tracking-widest">
-                    {lang === 'ru' ? 'Ежедневные квесты (Сброс в 00:00 UTC)' : 'Daily Quests (Resets at 00:00 UTC)'}
-                  </h3>
-                </div>
-
-                <div className="space-y-2.5">
-                  {quests.map((q) => {
-                    const progressPercent = Math.min(100, Math.round((q.progress / q.target_value) * 100));
-                    return (
-                      <div key={q.id} className="p-3.5 bg-[#0b071e] border border-[#9d4edd]/30 rounded-xl flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-pixel text-white font-bold">
-                            {lang === 'ru' ? q.title_ru : q.title_en}
-                          </span>
-                          <span className="text-[10px] font-pixel text-[#00f5d4]">
-                            {q.progress} / {q.target_value}
-                          </span>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="w-full h-2.5 bg-[#120a2e] rounded-full overflow-hidden border border-[#9d4edd]/30 p-0.5">
-                          <div
-                            className="h-full bg-gradient-to-r from-[#00f5d4] to-[#9d4edd] rounded-full shadow-[0_0_8px_#00f5d4] transition-all duration-300"
-                            style={{ width: `${progressPercent}%` }}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between pt-1 border-t border-[#9d4edd]/15">
-                          <div className="flex items-center gap-2.5 text-[10px] text-gray-300 font-mono-tech">
-                            <span className="flex items-center gap-1 text-[#ffb703]">
-                              <StardustCrystalIcon size={12} /> +{q.reward_dust}
-                            </span>
-                            <span className="text-[#00f5d4]">⭐ +{q.reward_exp} XP</span>
-                          </div>
-
-                          {q.is_claimed ? (
-                            <span className="text-[10px] font-bold text-[#00f5d4] font-pixel flex items-center gap-1">
-                              <Check className="w-3.5 h-3.5" /> {lang === 'ru' ? 'Получено' : 'Claimed'}
-                            </span>
-                          ) : q.is_completed ? (
-                            <button
-                              onClick={() => handleClaim(q.id)}
-                              className="px-3 py-1 text-[10px] font-pixel font-bold bg-[#ff007f] hover:bg-[#ff007f]/90 text-white rounded-lg shadow-[0_0_10px_#ff007f] transition-all"
-                            >
-                              {lang === 'ru' ? 'Забрать' : 'Claim'}
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-gray-500 font-pixel">
-                              {lang === 'ru' ? 'В процессе' : 'In Progress'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+            {/* Error Message */}
+            {error && (
+              <div className="p-2.5 rounded-xl bg-red-950/70 border border-red-500 text-red-200 text-xs text-center font-bold">
+                {error}
               </div>
-            </>
-          )}
-        </div>
+            )}
 
-        {/* Footer */}
-        <div className="pt-2 border-t border-[#00f5d4]/30 flex justify-end shrink-0">
-          <TactileButton
-            onClick={() => {
-              triggerHaptic('selection');
-              onClose();
-            }}
-            variant="dark"
-            size="sm"
-          >
-            {lang === 'ru' ? 'Закрыть' : 'Close'}
-          </TactileButton>
-        </div>
+            {/* Daily Quests List */}
+            <div className="flex flex-col gap-2.5 max-h-[300px] overflow-y-auto pr-1">
+              {quests.map((q) => (
+                <KokonutCard
+                  key={q.id}
+                  variant={q.completed && !q.claimed ? 'glow' : 'glass'}
+                  hoverEffect={!q.claimed}
+                  className="p-3.5 flex flex-col gap-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col min-w-0 pr-2">
+                      <h4 className="font-pixel text-xs text-white font-bold truncate">
+                        {lang === 'ru' ? q.titleRu || q.title : q.title}
+                      </h4>
+                      <p className="text-[10px] text-gray-400 font-sans truncate">
+                        {lang === 'ru' ? q.descriptionRu || q.description : q.description}
+                      </p>
+                    </div>
 
+                    {q.claimed ? (
+                      <KokonutBadge variant="glass" size="md" icon={<Check className="w-3.5 h-3.5 text-emerald-400" />}>
+                        CLAIMED
+                      </KokonutBadge>
+                    ) : q.completed ? (
+                      <KokonutButton
+                        variant="glow"
+                        size="sm"
+                        onClick={() => handleClaim(q.id)}
+                        icon={<Sparkles className="w-3.5 h-3.5" />}
+                      >
+                        CLAIM
+                      </KokonutButton>
+                    ) : (
+                      <KokonutBadge variant="gold" size="md" icon={<StardustCrystalIcon size={12} />}>
+                        +{q.rewardStardust}
+                      </KokonutBadge>
+                    )}
+                  </div>
+
+                  <KokonutProgress value={q.progress || 0} max={q.target || 1} size="sm" />
+                </KokonutCard>
+              ))}
+            </div>
+          </>
+        )}
       </div>
-    </div>
+    </KokonutModal>
   );
 };

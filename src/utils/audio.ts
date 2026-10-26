@@ -463,6 +463,10 @@ class SoundEngine {
     soundscapeManager.playNavAction(pitchMultiplier);
   }
 
+  public playNavClick() {
+    soundscapeManager.playNavAction(1.0);
+  }
+
   public playNavConfirm() {
     soundscapeManager.playNavConfirm();
   }

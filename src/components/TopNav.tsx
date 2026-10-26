@@ -8,6 +8,7 @@ import { getLevelFromXp } from '../utils/progression';
 import { StardustCrystalIcon, StarXtrIcon } from './ui/Icons';
 import { triggerHaptic } from '../utils/telegram';
 import { audioManager } from '../utils/audio';
+import { KokonutButton, KokonutBadge } from './ui/kokonut';
 
 interface TopNavProps {
   profile: PlayerProfile;
@@ -69,9 +70,9 @@ export const TopNav: React.FC<TopNavProps> = ({
   }, [profile.stardust]);
 
   return (
-    <header className="relative w-full bg-[#080417]/90 border-b border-[#00f5d4]/20 px-3 sm:px-5 py-2 flex items-center justify-between backdrop-blur-2xl z-30 font-mono-tech select-none shrink-0 pt-[max(0.5rem,env(safe-area-inset-top,0px))] shadow-[0_4px_30px_rgba(0,0,0,0.6)]">
+    <header className="relative w-full bg-[#080417]/85 border-b border-[#00f5d4]/20 px-3 sm:px-5 py-2.5 flex items-center justify-between backdrop-blur-2xl z-30 font-mono-tech select-none shrink-0 pt-[max(0.6rem,env(safe-area-inset-top,0px))] shadow-[0_4px_30px_rgba(0,0,0,0.6)]">
       {/* Top Subtle Neon Beam Accent Line */}
-      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#00f5d4]/50 to-transparent pointer-events-none" />
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#00f5d4]/60 to-transparent pointer-events-none" />
 
       {/* Pilot Avatar & Level (Click opens Flight Logbook Profile) */}
       <motion.button
@@ -85,7 +86,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           triggerHaptic('light');
           onOpenProfile();
         }}
-        className="flex items-center gap-2.5 cursor-pointer p-1 rounded-2xl hover:bg-[#180b35]/80 transition-colors border border-transparent hover:border-[#00f5d4]/30 text-left min-w-0 group"
+        className="flex items-center gap-2.5 cursor-pointer p-1.5 rounded-2xl bg-[#130a2e]/60 hover:bg-[#1b0d3f]/80 transition-all border border-white/5 hover:border-[#00f5d4]/40 text-left min-w-0 group shadow-sm"
       >
         <div className="relative w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-[#14082b] border-2 border-[#00f5d4]/80 flex items-center justify-center shadow-[0_0_15px_rgba(0,245,212,0.3)] group-hover:shadow-[0_0_22px_rgba(0,245,212,0.6)] group-hover:border-[#00f5d4] transition-all overflow-hidden">
           {profile.avatarUrl ? (
@@ -110,13 +111,13 @@ export const TopNav: React.FC<TopNavProps> = ({
             <span className="truncate group-hover:text-[#00f5d4] transition-colors tracking-tight">
               {profile.username || profile.firstName}
             </span>
-            <span className="text-[7px] sm:text-[8px] text-[#ffb703] bg-[#1a0c3b]/90 px-1.5 py-0.5 rounded-md border border-[#ffb703]/50 shrink-0 hidden xs:inline uppercase tracking-wider font-semibold">
+            <KokonutBadge variant="gold" size="sm" className="hidden xs:inline-flex">
               {localizedRankTitle}
-            </span>
+            </KokonutBadge>
             {profile.isDemo && (
-              <span className="text-[7px] text-[#00f5d4] bg-[#00f5d4]/10 border border-[#00f5d4]/50 px-1 py-0.2 rounded-md font-pixel shrink-0 animate-pulse">
+              <KokonutBadge variant="cyan" size="sm" className="animate-pulse">
                 DEMO
-              </span>
+              </KokonutBadge>
             )}
           </div>
           <div className="flex items-center gap-1.5 text-[8px] sm:text-[9px] text-gray-400">
@@ -128,87 +129,68 @@ export const TopNav: React.FC<TopNavProps> = ({
         </div>
       </motion.button>
 
-      {/* Action Buttons & Currency */}
-      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+      {/* Kokonut UI Action Buttons & Currency */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {/* Admin Live Ops Access Button (if authorized) */}
         {profile.isAdmin && onOpenAdminPanel && (
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
-            onMouseEnter={() => audioManager.playNavHover()}
+          <KokonutButton
+            variant="danger"
+            size="icon"
             onClick={() => {
               audioManager.playModalOpen('admin');
-              triggerHaptic('light');
               onOpenAdminPanel();
             }}
-            className="p-2 rounded-xl bg-[#ff007f]/15 border border-[#ff007f]/70 text-[#ff007f] hover:bg-[#ff007f] hover:text-white transition-all shadow-[0_0_12px_rgba(255,0,127,0.35)]"
             title="Live Ops Admin Panel"
             aria-label="Admin Panel"
           >
-            <ShieldCheck className="w-4 h-4 sm:w-4 sm:h-4" />
-          </motion.button>
+            <ShieldCheck className="w-4 h-4" />
+          </KokonutButton>
         )}
 
-        {/* Stardust Soft Currency Counter with Anime.js rolling value */}
-        <motion.button
-          type="button"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.94 }}
-          transition={{ type: 'spring', stiffness: 450, damping: 20 }}
-          onMouseEnter={() => audioManager.playNavHover()}
+        {/* Stardust Soft Currency Counter */}
+        <KokonutButton
+          variant="shimmer"
+          size="sm"
           onClick={() => {
             audioManager.playModalOpen('shop');
-            triggerHaptic('selection');
             onOpenShop();
           }}
-          className="flex items-center gap-1.5 bg-[#15092f]/90 px-2.5 sm:px-3 py-1.5 rounded-xl border border-[#ffb703]/50 text-[#ffb703] cursor-pointer hover:border-[#00f5d4] hover:text-white transition-all shadow-[0_0_12px_rgba(255,183,3,0.2)] hover:shadow-[0_0_16px_rgba(0,245,212,0.3)] group"
+          icon={<StardustCrystalIcon size={15} color="#ffb703" glowColor="#ffb703" />}
           title="Stardust"
         >
-          <StardustCrystalIcon size={15} color="#ffb703" glowColor="#ffb703" className="group-hover:scale-110 transition-transform" />
-          <span className="font-pixel text-[10px] sm:text-[11px] font-bold tabular-nums">
+          <span className="tabular-nums font-pixel text-[10px] sm:text-[11px] font-bold">
             {displayedStardust.toLocaleString()}
           </span>
-        </motion.button>
+        </KokonutButton>
 
         {/* Telegram Stars Shop Button */}
-        <motion.button
-          type="button"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.94 }}
-          transition={{ type: 'spring', stiffness: 450, damping: 20 }}
-          onMouseEnter={() => audioManager.playNavHover()}
+        <KokonutButton
+          variant="glass"
+          size="sm"
           onClick={() => {
             audioManager.playModalOpen('shop');
-            triggerHaptic('selection');
             onOpenStarsShop();
           }}
-          className="px-2.5 py-1.5 rounded-xl bg-[#15092f]/90 border border-[#ffb703]/50 text-[#ffb703] hover:border-[#00f5d4] hover:text-white transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(255,183,3,0.2)] hover:shadow-[0_0_16px_rgba(0,245,212,0.3)] group"
+          icon={<StarXtrIcon size={15} color="#ffb703" glowColor="#ffb703" />}
           title="Telegram Stars Shop (XTR)"
           aria-label="Stars Shop"
         >
-          <StarXtrIcon size={15} color="#ffb703" glowColor="#ffb703" className="group-hover:scale-110 transition-transform" />
-          <span className="font-pixel text-[9px] sm:text-[10px] font-bold tracking-tight">XTR</span>
-        </motion.button>
+          <span className="font-pixel text-[9px] sm:text-[10px] text-[#ffb703]">XTR</span>
+        </KokonutButton>
 
-        {/* Settings */}
-        <motion.button
-          type="button"
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.92 }}
-          transition={{ type: 'spring', stiffness: 450, damping: 20 }}
-          onMouseEnter={() => audioManager.playNavHover()}
+        {/* Settings Button */}
+        <KokonutButton
+          variant="glass"
+          size="icon"
           onClick={() => {
             audioManager.playModalOpen('settings');
-            triggerHaptic('selection');
             onOpenSettings();
           }}
-          className="p-2 rounded-xl bg-[#15092f]/90 border border-[#9d4edd]/40 text-gray-300 hover:text-[#00f5d4] hover:border-[#00f5d4] transition-all shadow-[0_0_10px_rgba(157,78,221,0.15)] hover:shadow-[0_0_15px_rgba(0,245,212,0.25)]"
           title={t.settingsTitle}
           aria-label="Settings"
         >
-          <Settings className="w-4 h-4" />
-        </motion.button>
+          <Settings className="w-4 h-4 text-[#00f5d4]" />
+        </KokonutButton>
       </div>
     </header>
   );

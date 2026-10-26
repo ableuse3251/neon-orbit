@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, User, Camera, Check, AlertCircle, Loader2, Sparkles, Upload, ShieldCheck } from "lucide-react";
+import { User, Camera, Check, AlertCircle, Sparkles, Upload, ShieldCheck } from "lucide-react";
 import { PlayerProfile } from "../types/game";
 import { api } from "../utils/api";
 import { getTelegramApp, triggerHaptic } from "../utils/telegram";
 import { PRESET_AVATARS, compressImageToDataUrl } from "../shared/avatars";
+import { KokonutModal, KokonutInput, KokonutButton, KokonutCard, KokonutBadge } from "./ui/kokonut";
 
 interface RegistrationModalProps {
   profile: PlayerProfile;
@@ -128,7 +129,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
       const compressedDataUrl = await compressImageToDataUrl(file);
       setAvatarUrl(compressedDataUrl);
       setSubmitError("");
-    } catch (err: any) {
+    } catch {
       setSubmitError(profile.lang === "ru" ? "Ошибка загрузки фото. Попробуйте другой файл." : "Image load error.");
     }
   };
@@ -161,46 +162,34 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-mono-tech select-none">
-      <div className="relative w-full max-w-md bg-[#120a2e] border-2 border-[#00f5d4] rounded-2xl p-4 sm:p-6 shadow-[0_0_40px_rgba(0,245,212,0.35)] flex flex-col gap-4 text-white max-h-[92vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#00f5d4]/30 pb-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#00f5d4]" />
-            <h2 className="font-pixel text-xs sm:text-sm text-[#00f5d4] uppercase tracking-wider">
-              {profile.lang === "ru" ? "Регистрация Пилота" : "Pilot Registration"}
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg bg-[#210b42] text-gray-400 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Informational Banner */}
-        <div className="bg-[#210b42]/80 border border-[#00f5d4]/40 rounded-xl p-3 flex items-center gap-3 text-xs text-gray-200 shadow-inner">
+    <KokonutModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={profile.lang === "ru" ? "Регистрация Пилота" : "Pilot Registration"}
+      icon={<Sparkles className="w-5 h-5" />}
+      maxWidth="md"
+    >
+      <div className="flex flex-col gap-4">
+        {/* Informational Kokonut Card */}
+        <KokonutCard variant="glow" hoverEffect={false} className="p-3.5 flex items-center gap-3">
           <ShieldCheck className="w-6 h-6 text-[#00f5d4] shrink-0" />
-          <p className="leading-snug">
+          <p className="text-xs text-gray-200 leading-snug">
             {profile.lang === "ru"
-              ? "Зарегистрируйтесь, чтобы сохранить свой прогресс и попасть в Зал Славы (таблицу лидеров)!"
+              ? "Зарегистрируйтесь, чтобы сохранить свой прогресс и попасть в Зал Славы!"
               : "Register to save your cosmic progress and compete on global leaderboards!"}
           </p>
-        </div>
+        </KokonutCard>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Avatar Section */}
-          <div className="flex flex-col items-center gap-3 bg-[#0b071e] p-3.5 rounded-xl border border-[#9d4edd]/30">
+          <KokonutCard variant="glass" hoverEffect={false} className="flex flex-col items-center gap-3">
             <span className="font-pixel text-[10px] sm:text-xs text-[#00f5d4] uppercase">
               {profile.lang === "ru" ? "1. Фото профиля (Аватар)" : "1. Profile Photo (Avatar)"}
             </span>
 
             {/* Avatar Preview */}
-            <div className="relative w-20 h-20 rounded-full border-2 border-[#00f5d4] bg-[#210b42] flex items-center justify-center overflow-hidden shadow-[0_0_20px_rgba(0,245,212,0.4)]">
+            <div className="relative w-20 h-20 rounded-2xl border-2 border-[#00f5d4] bg-[#14082b] flex items-center justify-center overflow-hidden shadow-[0_0_22px_rgba(0,245,212,0.4)]">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
@@ -209,7 +198,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1"
+                className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1 cursor-pointer"
               >
                 <Camera className="w-4 h-4" />
               </button>
@@ -226,23 +215,25 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
             {/* Upload & Preset Options */}
             <div className="flex flex-wrap items-center justify-center gap-2 w-full text-[10px]">
               {tgPhotoUrl && (
-                <button
+                <KokonutButton
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={handleUseTelegramPhoto}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#210b42] border border-[#00f5d4]/50 text-[#00f5d4] hover:bg-[#00f5d4]/20 font-pixel flex items-center gap-1.5 transition-all"
+                  icon={<Camera className="w-3 h-3" />}
                 >
-                  <Camera className="w-3 h-3" />
-                  <span>{profile.lang === "ru" ? "Telegram фото" : "Telegram Photo"}</span>
-                </button>
+                  {profile.lang === "ru" ? "Telegram фото" : "Telegram Photo"}
+                </KokonutButton>
               )}
-              <button
+              <KokonutButton
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1.5 rounded-lg bg-[#210b42] border border-[#ffb703]/50 text-[#ffb703] hover:bg-[#ffb703]/20 font-pixel flex items-center gap-1.5 transition-all"
+                icon={<Upload className="w-3 h-3" />}
               >
-                <Upload className="w-3 h-3" />
-                <span>{profile.lang === "ru" ? "Загрузить фото" : "Upload Photo"}</span>
-              </button>
+                {profile.lang === "ru" ? "Загрузить фото" : "Upload Photo"}
+              </KokonutButton>
             </div>
 
             {/* Preset Avatars Selector */}
@@ -255,9 +246,9 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                     triggerHaptic("light");
                     setSelectedPresetId(p.id);
                   }}
-                  className={`w-8 h-8 rounded-full border flex items-center justify-center text-sm transition-all ${
+                  className={`w-8 h-8 rounded-xl border flex items-center justify-center text-sm transition-all cursor-pointer ${
                     selectedPresetId === p.id
-                      ? "border-[#00f5d4] scale-110 shadow-[0_0_10px_#00f5d4]"
+                      ? "border-[#00f5d4] scale-110 shadow-[0_0_12px_#00f5d4]"
                       : "border-gray-700 hover:border-gray-500"
                   }`}
                   style={{ backgroundColor: `${p.color}20` }}
@@ -267,111 +258,64 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                 </button>
               ))}
             </div>
-          </div>
+          </KokonutCard>
 
           {/* Nickname Section */}
-          <div className="flex flex-col gap-2 bg-[#0b071e] p-3.5 rounded-xl border border-[#9d4edd]/30">
-            <div className="flex items-center justify-between">
-              <span className="font-pixel text-[10px] sm:text-xs text-[#00f5d4] uppercase">
-                {profile.lang === "ru" ? "2. Ваше Имя / Никнейм" : "2. Your Nickname"}
-              </span>
-              <span className="text-[9px] text-gray-400">
-                {nickname.length}/20
-              </span>
-            </div>
-
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                value={nickname}
-                onChange={(e) => handleNicknameChange(e.target.value)}
-                maxLength={20}
-                placeholder={profile.lang === "ru" ? "Введите никнейм..." : "Enter nickname..."}
-                className={`w-full bg-[#120a2e] border-2 rounded-xl px-3 py-2.5 text-xs text-white placeholder-gray-500 font-bold focus:outline-none transition-all pr-9 ${
-                  isAvailable === true
-                    ? "border-green-400 focus:shadow-[0_0_12px_rgba(74,222,128,0.4)]"
-                    : isAvailable === false
-                    ? "border-red-500 focus:shadow-[0_0_12px_rgba(239,68,68,0.4)]"
-                    : "border-[#9d4edd]/50 focus:border-[#00f5d4]"
-                }`}
-              />
-              <div className="absolute right-3 flex items-center">
-                {checking ? (
-                  <Loader2 className="w-4 h-4 text-[#00f5d4] animate-spin" />
-                ) : isAvailable === true ? (
-                  <Check className="w-4 h-4 text-green-400" />
-                ) : isAvailable === false ? (
-                  <AlertCircle className="w-4 h-4 text-red-400" />
-                ) : null}
-              </div>
-            </div>
+          <KokonutCard variant="glass" hoverEffect={false} className="flex flex-col gap-2">
+            <KokonutInput
+              label={profile.lang === "ru" ? "2. Ваше Имя / Никнейм" : "2. Your Nickname"}
+              maxLength={20}
+              value={nickname}
+              onChange={(e) => handleNicknameChange(e.target.value)}
+              placeholder={profile.lang === "ru" ? "Введите никнейм..." : "Enter nickname..."}
+              error={isAvailable === false ? statusMessage : undefined}
+              success={isAvailable === true}
+              helperText={isAvailable === true ? statusMessage : checking ? (profile.lang === "ru" ? "Проверка..." : "Checking...") : undefined}
+            />
 
             {/* Quick Telegram Username Button */}
             {tgUsername && nickname !== tgUsername && (
               <button
                 type="button"
                 onClick={handleUseTelegramNickname}
-                className="text-[10px] text-[#00f5d4] hover:underline self-start flex items-center gap-1 font-pixel mt-0.5"
+                className="text-[10px] text-[#00f5d4] hover:underline self-start flex items-center gap-1 font-pixel mt-0.5 cursor-pointer"
               >
                 <span>⚡ {profile.lang === "ru" ? "Использовать ник Telegram:" : "Use Telegram handle:"}</span>
                 <strong className="text-white">@{tgUsername}</strong>
               </button>
             )}
-
-            {/* Status Message */}
-            {statusMessage && (
-              <div
-                className={`text-[10px] flex items-center gap-1 font-pixel mt-1 ${
-                  isAvailable === true
-                    ? "text-green-400"
-                    : isAvailable === false
-                    ? "text-red-400"
-                    : "text-gray-300"
-                }`}
-              >
-                <span>{statusMessage}</span>
-              </div>
-            )}
-          </div>
+          </KokonutCard>
 
           {/* Submit Error */}
           {submitError && (
-            <div className="p-2.5 rounded-lg bg-red-950/60 border border-red-500 text-red-300 text-xs text-center font-bold">
+            <div className="p-2.5 rounded-xl bg-red-950/60 border border-red-500 text-red-300 text-xs text-center font-bold">
               {submitError}
             </div>
           )}
 
           {/* Action Buttons */}
           <div className="flex flex-col gap-2 pt-1">
-            <button
+            <KokonutButton
               type="submit"
-              disabled={submitting || checking || isAvailable === false || !validateFormat(nickname)}
-              className={`w-full py-3.5 rounded-xl font-pixel text-xs font-bold uppercase transition-all shadow-lg flex items-center justify-center gap-2 ${
-                submitting || checking || isAvailable === false || !validateFormat(nickname)
-                  ? "bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed opacity-60"
-                  : "bg-[#00f5d4] text-[#0b071e] hover:bg-[#00f5d4]/90 shadow-[0_0_20px_#00f5d4] cursor-pointer"
-              }`}
+              variant="glow"
+              size="lg"
+              isLoading={submitting || checking}
+              disabled={isAvailable === false || !validateFormat(nickname)}
+              className="w-full"
             >
-              {submitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>{profile.lang === "ru" ? "СОХРАНЕНИЕ..." : "SAVING..."}</span>
-                </>
-              ) : (
-                <span>{profile.lang === "ru" ? "ЗАРЕГИСТРИРОВАТЬСЯ" : "REGISTER & SAVE"}</span>
-              )}
-            </button>
+              {profile.lang === "ru" ? "ЗАРЕГИСТРИРОВАТЬСЯ" : "REGISTER & SAVE"}
+            </KokonutButton>
 
             <button
               type="button"
               onClick={onClose}
-              className="py-2 text-[10px] text-gray-400 hover:text-white font-pixel text-center transition-colors"
+              className="py-2 text-[10px] text-gray-400 hover:text-white font-pixel text-center transition-colors cursor-pointer"
             >
               {profile.lang === "ru" ? "Пропустить пока" : "Skip for now"}
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </KokonutModal>
   );
 };

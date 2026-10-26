@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { X, Users, Gift, Share2, Copy, Check, ShieldCheck, Sparkles, Award } from 'lucide-react';
+import { Users, Gift, Share2, Copy, Check, Sparkles } from 'lucide-react';
 import { PlayerProfile, ReferralTier } from '../types/game';
 import { triggerHaptic } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
 import { trackEvent } from '../utils/analytics';
+import { KokonutModal, KokonutCard, KokonutInput, KokonutButton, KokonutBadge, KokonutProgress } from './ui/kokonut';
 
 interface ReferralsModalProps {
   profile: PlayerProfile;
@@ -47,23 +48,21 @@ export const ReferralsModal: React.FC<ReferralsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-mono-tech select-none">
-      <div className="relative w-full max-w-md bg-[#120a2e] border-2 border-[#00f5d4] rounded-2xl p-3.5 sm:p-5 shadow-[0_0_35px_rgba(0,245,212,0.35)] flex flex-col gap-3 sm:gap-4 text-white max-h-[94vh] sm:max-h-[85vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#00f5d4]/40 pb-2.5 sm:pb-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 sm:w-5 sm:h-5 text-[#00f5d4]" />
-            <h2 className="font-pixel text-[11px] sm:text-xs text-[#00f5d4] uppercase tracking-wider">
-              {profile.lang === 'ru' ? 'Реферальная Программа' : 'Referral Starfleet'}
-            </h2>
-          </div>
-          <button onClick={onClose} className="p-1 rounded bg-[#210b42] text-gray-400 hover:text-white">
-            <X className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-        </div>
-
-        {/* Invited Stats Card */}
-        <div className="bg-[#0b071e] border border-[#00f5d4]/40 rounded-xl p-3.5 flex items-center justify-between">
+    <KokonutModal
+      isOpen={true}
+      onClose={onClose}
+      title={profile.lang === 'ru' ? 'Реферальная Программа' : 'Referral Starfleet'}
+      icon={<Users className="w-5 h-5 text-[#00f5d4]" />}
+      badge={
+        <KokonutBadge variant="gold" size="sm">
+          {profile.referralsCount} {profile.lang === 'ru' ? 'Друзей' : 'Friends'}
+        </KokonutBadge>
+      }
+      maxWidth="md"
+    >
+      <div className="flex flex-col gap-3">
+        {/* Invited Stats Banner Card */}
+        <KokonutCard variant="glow" hoverEffect={false} className="p-4 flex items-center justify-between">
           <div className="flex flex-col">
             <span className="text-[10px] text-gray-400 font-pixel uppercase">
               {profile.lang === 'ru' ? 'Приглашено Пилотов:' : 'Invited Pilots:'}
@@ -72,101 +71,90 @@ export const ReferralsModal: React.FC<ReferralsModalProps> = ({
               {profile.referralsCount} {profile.lang === 'ru' ? 'Друзей' : 'Friends'}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 bg-[#210b42] px-3 py-1.5 rounded-full border border-[#00f5d4]/40 text-[#00f5d4] font-pixel text-xs">
-            <Sparkles className="w-4 h-4" />
-            <span>+250 Stardust / friend</span>
-          </div>
-        </div>
 
-        {/* Invite Link Box */}
-        <div className="flex items-center gap-2 bg-[#210b42] border border-[#00f5d4]/40 rounded-xl p-2 text-xs">
-          <input
-            type="text"
-            readOnly
+          <KokonutBadge variant="cyan" size="md" icon={<Sparkles className="w-4 h-4" />}>
+            +250 Stardust / friend
+          </KokonutBadge>
+        </KokonutCard>
+
+        {/* Copy / Share Action Box */}
+        <div className="flex flex-col gap-2">
+          <KokonutInput
             value={refUrl}
-            className="flex-1 bg-transparent text-gray-300 outline-none truncate font-mono-tech text-[11px] px-1"
+            readOnly
+            rightIcon={
+              <KokonutButton
+                variant="glow"
+                size="sm"
+                onClick={handleCopyLink}
+                icon={copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              >
+                {copied ? 'COPIED' : 'COPY'}
+              </KokonutButton>
+            }
           />
-          <button
-            onClick={handleCopyLink}
-            className="p-2 bg-[#00f5d4] text-[#0b071e] font-bold rounded-lg hover:bg-[#00f5d4]/90 transition-colors"
+
+          <KokonutButton
+            variant="gradient"
+            size="lg"
+            onClick={handleShareInvite}
+            icon={<Share2 className="w-4 h-4" />}
+            className="w-full"
           >
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-          </button>
+            {profile.lang === 'ru' ? 'ОТПРАВИТЬ ПРИГЛАШЕНИЕ В TELEGRAM' : 'SHARE INVITATION IN TELEGRAM'}
+          </KokonutButton>
         </div>
 
         {/* Tiers Rewards List */}
-        <div className="flex-1 overflow-y-auto flex flex-col gap-2.5 pr-1 max-h-[35vh]">
+        <div className="flex flex-col gap-2.5 max-h-[220px] overflow-y-auto pr-1">
           {REFERRAL_TIERS.map((tier) => {
             const isClaimed = profile.claimedReferralTiers.includes(tier.level);
             const canClaim = profile.referralsCount >= tier.requiredInvites && !isClaimed;
-            const title = profile.lang === 'ru' ? tier.titleRu : tier.titleEn;
 
             return (
-              <div
+              <KokonutCard
                 key={tier.level}
-                className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-all ${
-                  isClaimed
-                    ? 'bg-[#00f5d4]/10 border-[#00f5d4]'
-                    : canClaim
-                    ? 'bg-[#ff007f]/20 border-[#ff007f] animate-pulse'
-                    : 'bg-[#0b071e] border-[#9d4edd]/25'
-                }`}
+                variant={canClaim ? 'glow' : 'glass'}
+                hoverEffect={canClaim}
+                className="p-3 flex items-center justify-between border"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#210b42] border border-[#00f5d4]/30 flex items-center justify-center font-pixel text-xs text-[#00f5d4] font-bold">
-                    T{tier.level}
+                <div className="flex flex-col min-w-0 pr-2">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-pixel text-xs text-white font-bold truncate">
+                      {profile.lang === 'ru' ? tier.titleRu : tier.titleEn}
+                    </h4>
+                    <KokonutBadge variant="gold" size="sm">
+                      {tier.requiredInvites} {profile.lang === 'ru' ? 'друзей' : 'invites'}
+                    </KokonutBadge>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="font-pixel text-xs text-white">{title}</span>
-                    <span className="text-[10px] text-gray-400 mt-0.5">
-                      {tier.requiredInvites} {profile.lang === 'ru' ? 'приглашенных' : 'invites required'}
-                    </span>
-                    <span className="text-[9px] font-pixel text-[#ffb703] mt-1">
-                      +{tier.rewardStardust} 🌟 Stardust {tier.rewardShipId ? '+ 🚀 Exclusive Skin' : ''}
-                    </span>
-                  </div>
+                  <p className="text-[10px] text-gray-400 font-sans mt-0.5">
+                    Reward: +{tier.rewardStardust} Stardust
+                  </p>
                 </div>
 
                 {isClaimed ? (
-                  <span className="px-3 py-1.5 bg-[#00f5d4] text-[#0b071e] font-pixel text-[9px] font-bold rounded-lg flex items-center gap-1">
-                    <Check className="w-3 h-3" /> CLAIMED
-                  </span>
-                ) : (
-                  <button
-                    disabled={!canClaim}
-                    onClick={() => {
-                      triggerHaptic('success');
-                      onClaimTierReward(tier.level, tier.rewardStardust, tier.rewardShipId);
-                    }}
-                    className={`px-3 py-1.5 rounded-lg font-pixel text-[9px] font-bold ${
-                      canClaim
-                        ? 'bg-[#ff007f] hover:bg-[#ff007f]/90 text-white shadow-[0_0_10px_#ff007f]'
-                        : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
-                    }`}
+                  <KokonutBadge variant="glass" size="md" icon={<Check className="w-3.5 h-3.5 text-emerald-400" />}>
+                    CLAIMED
+                  </KokonutBadge>
+                ) : canClaim ? (
+                  <KokonutButton
+                    variant="glow"
+                    size="sm"
+                    onClick={() => onClaimTierReward(tier.level, tier.rewardStardust, tier.rewardShipId)}
+                    icon={<Gift className="w-3.5 h-3.5" />}
                   >
                     CLAIM
-                  </button>
+                  </KokonutButton>
+                ) : (
+                  <KokonutBadge variant="glass" size="md">
+                    {profile.referralsCount}/{tier.requiredInvites}
+                  </KokonutBadge>
                 )}
-              </div>
+              </KokonutCard>
             );
           })}
         </div>
-
-        {/* Invite CTA Button */}
-        <button
-          onClick={handleShareInvite}
-          className="w-full py-3.5 bg-[#00f5d4] text-[#0b071e] font-pixel text-xs rounded-xl font-bold hover:bg-[#00f5d4]/90 flex items-center justify-center gap-2 shadow-[0_0_15px_#00f5d4]"
-        >
-          <Share2 className="w-4 h-4" />
-          <span>{profile.lang === 'ru' ? 'ПРИГЛАСИТЬ ДРУГА В ЭСКАДРИЛЬЮ' : 'INVITE FRIEND TO STARFLEET'}</span>
-        </button>
-
-        {/* Anti-Fraud Note */}
-        <div className="p-2.5 rounded-lg bg-[#0b071e] border border-[#00f5d4]/20 flex items-center justify-center gap-2 text-[10px] text-gray-400 text-center font-mono-tech">
-          <ShieldCheck className="w-3.5 h-3.5 text-[#00f5d4]" />
-          <span>Anti-Fraud System: Unique Telegram User ID & 1 completed round required.</span>
-        </div>
       </div>
-    </div>
+    </KokonutModal>
   );
 };

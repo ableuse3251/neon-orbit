@@ -12,6 +12,7 @@ import {
   QuestsTargetIcon,
   SquadUsersIcon,
 } from './ui/Icons';
+import { KokonutBadge } from './ui/kokonut';
 
 interface BottomNavProps {
   profile: PlayerProfile;
@@ -82,7 +83,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   ];
 
   return (
-    <nav className="relative w-full bg-[#080417]/95 border-t border-[#00f5d4]/25 backdrop-blur-2xl z-30 font-mono-tech select-none shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] shadow-[0_-12px_40px_rgba(0,0,0,0.85)]">
+    <nav className="relative w-full bg-[#070314]/90 border-t border-[#00f5d4]/20 backdrop-blur-2xl z-30 font-mono-tech select-none shrink-0 pb-[max(0.6rem,env(safe-area-inset-bottom,0px))] shadow-[0_-12px_40px_rgba(0,0,0,0.85)]">
       {/* Top Subtle Beam Light Accent Line */}
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#00f5d4]/60 to-transparent pointer-events-none" />
 
@@ -102,27 +103,27 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 triggerHaptic('selection');
                 onSelectTab(tab.id);
               }}
-              className={`relative flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-colors group ${
+              className={`relative flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all group ${
                 isActive
                   ? 'text-[#00f5d4]'
                   : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              {/* Motion Layout Active Background Indicator */}
+              {/* Kokonut Dock Motion Layout Active Background Indicator */}
               {isActive && (
                 <motion.div
                   layoutId="activeBottomNavPill"
                   transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                  className="absolute inset-0 bg-gradient-to-b from-[#1b0c3f] to-[#12072e] rounded-2xl border border-[#00f5d4]/70 shadow-[0_0_20px_rgba(0,245,212,0.3)] z-0"
+                  className="absolute inset-0 bg-gradient-to-b from-[#1c0c42] to-[#11062c] rounded-2xl border border-[#00f5d4]/70 shadow-[0_0_22px_rgba(0,245,212,0.35)] z-0"
                 />
               )}
 
-              {/* Active Indicator Top Glow Line */}
+              {/* Active Indicator Top Glow Dot */}
               {isActive && (
                 <motion.div
                   layoutId="activeBottomNavGlow"
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  className="absolute -top-[1px] left-1/4 right-1/4 h-[2px] rounded-full shadow-[0_0_8px_currentColor] z-10"
+                  className="absolute -top-[1px] left-1/3 right-1/3 h-[2px] rounded-full shadow-[0_0_10px_currentColor] z-10"
                   style={{ backgroundColor: tab.color, color: tab.color }}
                 />
               )}
@@ -138,13 +139,15 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 />
 
                 {tab.badge !== undefined && (
-                  <span
-                    className={`absolute -top-2 -right-3 text-white font-pixel text-[7px] px-1.5 py-0.3 rounded-full leading-tight shadow-[0_0_10px_#ff007f] font-bold border border-black/80 ${
-                      tab.badge === '🎁' ? 'bg-[#ff007f] animate-bounce' : 'bg-gradient-to-r from-[#ff007f] to-[#9d4edd]'
+                  <KokonutBadge
+                    variant={tab.badge === '🎁' ? 'pink' : 'gold'}
+                    size="sm"
+                    className={`absolute -top-2.5 -right-3.5 shadow-md ${
+                      tab.badge === '🎁' ? 'animate-bounce' : ''
                     }`}
                   >
                     {tab.badge}
-                  </span>
+                  </KokonutBadge>
                 )}
               </div>
 
