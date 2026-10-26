@@ -179,7 +179,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     init3DSpaceEnvironment();
 
     // Resolve authoritative seed for simulation
-    const effectiveSeed = (seed || dailySeed || (isDemo ? `demo_${Date.now()}_${Math.random().toString(36).substring(2, 8)}` : `norm_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`)).trim();
+    const effectiveSeed = (seed || dailySeed || (isDemo ? `demo_norm_${Date.now()}_${Math.random().toString(36).substring(2, 9)}` : `norm_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`)).trim();
     effectiveSeedRef.current = effectiveSeed;
 
     // Generate deterministic target schedule matching server model
@@ -307,8 +307,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         const dy = touchY - targetPxY;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Proximity Hit Radius
-        if (dist <= target.radius + 22) {
+        // Generous touch hit radius for mobile/touch screens (minimum 48px radius)
+        const hitRadius = Math.max(target.radius + 35, 48);
+
+        if (dist <= hitRadius) {
           hitFound = true;
 
           // 1. FORBIDDEN HAZARD OBJECTS (Mines, Black Holes, Decoy Satellites, EMP Pulses)
@@ -318,8 +320,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             state.combo = 0;
             state.multiplier = 1;
 
-            // PENALTIES: -3 SECONDS TIME PENALTY & -250 SCORE PENALTY!
-            state.roundStartTime -= 3000; // Deducts 3s from remaining time
+            // EXPLICIT TIME PENALTY FOR TAPPING HAZARDS: -3 SECONDS & -250 SCORE PENALTY!
+            state.roundStartTime -= 3000;
             state.score = Math.max(0, state.score - 250);
 
             if (!reduceMotion) {
@@ -496,14 +498,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
-      // MISS PENALTY (Tapping empty space)
+      // MISS TAP (Tapping empty space)
       if (!hitFound) {
         state.misses++;
-        // Penalty: -1 second deduction & -50 points
-        state.roundStartTime -= 1000;
-        state.score = Math.max(0, state.score - 50);
-
-        // Grace combo reduction (-1 combo step) instead of resetting 20x combo to 0!
+        // Minor -25 score penalty and -1 combo step. NO TIME DEDUCTION ON SIMPLE MISS!
+        state.score = Math.max(0, state.score - 25);
         state.combo = Math.max(0, state.combo - 1);
         state.multiplier = getComboMultiplier(state.combo);
 
@@ -513,11 +512,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         state.floatingTexts.push(
           floatingTextPool.acquire(
             `fl_miss_${Date.now()}`,
-            `⏱️ -1s | -50 PTS`,
+            `MISS (-25)`,
             touchX,
             touchY,
             '#FFB703',
-            1.2
+            1.1
           )
         );
 
@@ -527,7 +526,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           yPct: tapYPct,
           type: 'miss',
           hit: false,
-          scoreGained: -50,
+          scoreGained: -25,
         });
       }
 
@@ -564,7 +563,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     };
   }, [isPlaying, isPaused, onPauseChange]);
 
-  // Main Render Loop: Forward Hyper-Speed Warp Flight & Equipped Spaceship Rendering
+  // Main Render Loop: Forward Hyper-Speed Warp Flight & Levitating Target Objects
   useEffect(() => {
     let animationFrameId: number;
     const canvas = canvasRef.current;
@@ -638,21 +637,24 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             spawnTimeMs: st.spawnTimeMs,
             spawnTime: state.roundStartTime + st.spawnTimeMs,
             lifespan: st.durationMs,
-            pulsePhase: 0,
+            pulsePhase: Math.random() * Math.PI * 2,
             speed: st.speed,
           });
           nextTargetIndexRef.current++;
         }
 
-        // Update target positions with drift trajectories
+        // Levitating Drift Update Loop
         for (let i = state.targets.length - 1; i >= 0; i--) {
           const target = state.targets[i];
-          target.x += target.vx * deltaTime;
-          target.y += target.vy * deltaTime;
 
-          // Clamp within visible boundaries
-          if (target.x < 8 || target.x > 92) target.vx *= -1;
-          if (target.y < 12 || target.y > 78) target.vy *= -1;
+          // Linear drift + gentle floating sine wave oscillation
+          target.x += target.vx * deltaTime;
+          const floatOffset = Math.sin(currentTime * 0.002 + target.pulsePhase) * 0.18;
+          target.y += (target.vy + floatOffset) * deltaTime;
+
+          // Bounce smoothly off viewport boundaries (X: 10% to 90%, Y: 14% to 78%)
+          if (target.x < 10 || target.x > 90) target.vx *= -1;
+          if (target.y < 14 || target.y > 78) target.vy *= -1;
 
           const targetAgeMs = elapsedMs - (target.spawnTimeMs ?? (target.spawnTime - state.roundStartTime));
           if (targetAgeMs > target.lifespan) {
@@ -787,8 +789,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         const targetPxY = (target.y / 100) * height;
 
         const age = elapsedMs - (target.spawnTimeMs ?? (target.spawnTime - state.roundStartTime));
-        const growProgress = Math.min(1, Math.max(0, age) / 250);
-        const targetScale = 0.2 + 0.8 * growProgress;
+        const growProgress = Math.min(1, Math.max(0, age) / 350);
+        const targetScale = 0.3 + 0.7 * growProgress;
 
         ctx.save();
         ctx.translate(targetPxX, targetPxY);

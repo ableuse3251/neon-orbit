@@ -878,147 +878,158 @@ function generateRoundTargets(seed, mode = "classic") {
     const rType = rng();
     let type = "asteroid";
     let points = 100;
-    let radius = 28;
+    let radius = 32;
     let speed = 1;
-    let lifespanMs = 2600;
+    let lifespanMs = 5200;
     let maxHp = 1;
-    let vxPct = (rng() - 0.5) * 4;
-    let vyPct = (rng() - 0.5) * 4;
+    const driftDirX = rng() > 0.5 ? 1 : -1;
+    const driftDirY = rng() > 0.5 ? 1 : -1;
+    let vxPct = driftDirX * (8 + rng() * 12);
+    let vyPct = driftDirY * (6 + rng() * 10);
     if (progressRatio < 0.18) {
-      if (rType < 0.25) {
+      if (rType < 0.28) {
         type = "golden_beacon";
         points = 300;
-        radius = 23;
-        lifespanMs = 2400;
-      } else if (rType < 0.45) {
+        radius = 28;
+        lifespanMs = 5e3;
+      } else if (rType < 0.5) {
         type = "comet";
         points = 200;
-        radius = 24;
-        lifespanMs = 2200;
+        radius = 26;
+        vxPct *= 1.8;
+        vyPct *= 1.8;
+        lifespanMs = 4500;
       } else {
         type = "asteroid";
         points = 100;
-        radius = 28;
+        radius = 32;
+        lifespanMs = 5500;
       }
     } else if (progressRatio < 0.4) {
-      if (rType < 0.2) {
+      if (rType < 0.22) {
         type = "golden_beacon";
         points = 300;
-        radius = 22;
-        lifespanMs = 2e3;
-      } else if (rType < 0.38) {
+        radius = 28;
+        lifespanMs = 4800;
+      } else if (rType < 0.4) {
         type = "double_beacon";
         points = 450;
-        radius = 23;
-        lifespanMs = 1900;
-      } else if (rType < 0.58) {
+        radius = 28;
+        lifespanMs = 4600;
+      } else if (rType < 0.6) {
         type = "comet";
         points = 200;
-        radius = 22;
-        lifespanMs = 1800;
-      } else if (rType < 0.72) {
+        radius = 26;
+        vxPct *= 2;
+        vyPct *= 2;
+        lifespanMs = 4200;
+      } else if (rType < 0.75) {
         type = "magnet";
         points = 250;
-        radius = 25;
-        lifespanMs = 2200;
+        radius = 30;
+        lifespanMs = 5e3;
       } else if (rType < 0.88) {
         type = "mine";
         points = -250;
-        radius = 26;
-        lifespanMs = 3200;
+        radius = 30;
+        lifespanMs = 5500;
       } else {
         type = "asteroid";
         points = 100;
-        radius = 28;
+        radius = 32;
+        lifespanMs = 5500;
       }
     } else if (progressRatio < 0.7) {
-      if (rType < 0.2) {
+      if (rType < 0.22) {
         type = "mine";
         points = -250;
-        radius = 26;
-        lifespanMs = 3500;
-      } else if (rType < 0.32) {
+        radius = 30;
+        lifespanMs = 5800;
+      } else if (rType < 0.35) {
         type = "black_hole";
         points = -350;
-        radius = 32;
-        lifespanMs = 3800;
-      } else if (rType < 0.44) {
+        radius = 36;
+        lifespanMs = 6e3;
+      } else if (rType < 0.48) {
         type = "decoy_satellite";
         points = -200;
-        radius = 25;
-        lifespanMs = 3e3;
-      } else if (rType < 0.6) {
+        radius = 30;
+        lifespanMs = 5200;
+      } else if (rType < 0.65) {
         type = "golden_beacon";
         points = 300;
-        radius = 22;
-        lifespanMs = 2e3;
-      } else if (rType < 0.78) {
+        radius = 28;
+        lifespanMs = 4800;
+      } else if (rType < 0.82) {
         type = "double_beacon";
         points = 450;
-        radius = 22;
-        lifespanMs = 1800;
+        radius = 28;
+        lifespanMs = 4500;
       } else {
         type = "comet";
         points = 200;
-        radius = 22;
-        lifespanMs = 1800;
+        radius = 26;
+        vxPct *= 2.2;
+        vyPct *= 2.2;
+        lifespanMs = 4200;
       }
     } else if (progressRatio < 0.88) {
-      if (rType < 0.15) {
+      if (rType < 0.16) {
         type = "boss_meteor";
         points = 800;
-        radius = 42;
-        lifespanMs = 6e3;
+        radius = 46;
+        lifespanMs = 7500;
         maxHp = 3;
+        vxPct *= 0.5;
+        vyPct *= 0.5;
       } else if (rType < 0.35) {
         type = "emp_pulse";
         points = -300;
-        radius = 28;
-        lifespanMs = 3e3;
-      } else if (rType < 0.55) {
+        radius = 32;
+        lifespanMs = 5200;
+      } else if (rType < 0.58) {
         type = "double_beacon";
         points = 450;
-        radius = 22;
-        lifespanMs = 1800;
-      } else if (rType < 0.75) {
+        radius = 28;
+        lifespanMs = 4500;
+      } else if (rType < 0.78) {
         type = "golden_beacon";
         points = 300;
-        radius = 22;
-        lifespanMs = 1900;
+        radius = 28;
+        lifespanMs = 4800;
       } else {
         type = "magnet";
         points = 250;
-        radius = 24;
-        lifespanMs = 2100;
+        radius = 30;
+        lifespanMs = 5e3;
       }
     } else {
-      if (rType < 0.3) {
+      if (rType < 0.32) {
         type = "double_beacon";
         points = 450;
-        radius = 20;
-        lifespanMs = 1600;
-      } else if (rType < 0.6) {
+        radius = 26;
+        lifespanMs = 4200;
+      } else if (rType < 0.62) {
         type = "golden_beacon";
         points = 300;
-        radius = 21;
-        lifespanMs = 1700;
-      } else if (rType < 0.8) {
+        radius = 27;
+        lifespanMs = 4400;
+      } else if (rType < 0.82) {
         type = "comet";
         points = 200;
-        radius = 22;
-        lifespanMs = 1600;
+        radius = 26;
+        vxPct *= 2.2;
+        vyPct *= 2.2;
+        lifespanMs = 4e3;
       } else {
         type = "mine";
         points = -250;
-        radius = 25;
-        lifespanMs = 2800;
+        radius = 30;
+        lifespanMs = 5200;
       }
     }
-    speed *= 1 + progressRatio * 0.4;
-    vxPct *= 1 + progressRatio * 0.5;
-    vyPct *= 1 + progressRatio * 0.5;
-    const xPct = 12 + rng() * 76;
-    const yPct = 18 + rng() * 62;
+    const xPct = 14 + rng() * 72;
+    const yPct = 18 + rng() * 58;
     targets.push({
       id: `t_${idCounter++}`,
       spawnTimeMs: Math.round(currentMs),
@@ -1033,10 +1044,10 @@ function generateRoundTargets(seed, mode = "classic") {
       durationMs: lifespanMs,
       maxHp
     });
-    let intervalBase = 650;
-    if (normMode === "blitz") intervalBase = 400;
-    if (normMode === "rhythm") intervalBase = 550;
-    const nextInterval = intervalBase + rng() * 500 * (1 - progressRatio * 0.35);
+    let intervalBase = 750;
+    if (normMode === "blitz") intervalBase = 500;
+    if (normMode === "rhythm") intervalBase = 650;
+    const nextInterval = intervalBase + rng() * 550 * (1 - progressRatio * 0.3);
     currentMs += nextInterval;
   }
   return targets;
@@ -1183,7 +1194,7 @@ function recalculateRound(seed, clickLogs, durationMs, mode = "classic") {
     } else {
       misses++;
       combo = Math.max(0, combo - 1);
-      score = Math.max(0, score - 50);
+      score = Math.max(0, score - 25);
     }
   }
   const accuracy = normalizedLogs.length > 0 ? hits / normalizedLogs.length * 100 : 0;
