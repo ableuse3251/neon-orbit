@@ -1,4 +1,14 @@
-export type TargetType = 'asteroid' | 'comet' | 'golden_beacon' | 'mine' | 'magnet' | 'double_beacon' | 'black_hole' | 'boss_meteor';
+export type TargetType =
+  | 'asteroid'
+  | 'comet'
+  | 'golden_beacon'
+  | 'mine'
+  | 'magnet'
+  | 'double_beacon'
+  | 'black_hole'
+  | 'boss_meteor'
+  | 'decoy_satellite'
+  | 'emp_pulse';
 export type PowerupType = 'freeze' | 'supernova' | 'shield' | 'slow_time' | 'magnet_field';
 export type GameMode = 'classic' | 'blitz' | 'survival' | 'rhythm' | 'daily' | 'challenge';
 export type GameState = 'MENU' | 'PLAYING' | 'SUMMARY';

@@ -332,8 +332,10 @@ export default function App() {
     // Explicit Demo Mode handling
     if (isDemo || profile.isDemo) {
       setIsDemoMode(true);
-      const demoSeed = isDaily ? `demo_daily_${Date.now()}` : `demo_norm_${Date.now()}`;
-      const demoRoundId = `demo_${Date.now()}`;
+      const demoSeed = isDaily
+        ? `demo_daily_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+        : `demo_norm_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      const demoRoundId = `demo_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       setCurrentRoundId(demoRoundId);
       setCurrentSeed(demoSeed);
       setDailySeed(isDaily ? demoSeed : undefined);

@@ -1,6 +1,12 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { Target, Particle, FloatingText, TargetType, PowerupType, RoundStats, ClickLog } from '../types/game';
-import { generateRoundTargets, getTargetColor, SharedTarget } from '../shared/targetGenerator';
+import {
+  generateRoundTargets,
+  getTargetColor,
+  SharedTarget,
+  isForbiddenTarget,
+  getComboMultiplier,
+} from '../shared/targetGenerator';
 import { particlePool, floatingTextPool } from '../utils/pool';
 import { performanceManager } from '../utils/performance';
 import { audioManager } from '../utils/audio';
@@ -173,7 +179,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     init3DSpaceEnvironment();
 
     // Resolve authoritative seed for simulation
-    const effectiveSeed = (seed || dailySeed || (isDemo ? `demo_${Date.now()}` : `norm_${Date.now()}`)).trim();
+    const effectiveSeed = (seed || dailySeed || (isDemo ? `demo_${Date.now()}_${Math.random().toString(36).substring(2, 8)}` : `norm_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`)).trim();
     effectiveSeedRef.current = effectiveSeed;
 
     // Generate deterministic target schedule matching server model
@@ -228,7 +234,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     if (isPlaying) {
       startRound();
     } else {
-      // Clean up on round end / exit to prevent leaks
       const state = gameStateRef.current;
       state.particles.forEach((p) => particlePool.release(p));
       state.particles = [];
@@ -302,17 +307,62 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         const dy = touchY - targetPxY;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Hit detection radius
-        if (dist <= target.radius + 20) {
+        // Proximity Hit Radius
+        if (dist <= target.radius + 22) {
           hitFound = true;
-          state.hits++;
 
-          // Boss meteor multi-hit handling
+          // 1. FORBIDDEN HAZARD OBJECTS (Mines, Black Holes, Decoy Satellites, EMP Pulses)
+          if (isForbiddenTarget(target.type)) {
+            state.targets.splice(i, 1);
+            state.minesHit++;
+            state.combo = 0;
+            state.multiplier = 1;
+
+            // PENALTIES: -3 SECONDS TIME PENALTY & -250 SCORE PENALTY!
+            state.roundStartTime -= 3000; // Deducts 3s from remaining time
+            state.score = Math.max(0, state.score - 250);
+
+            if (!reduceMotion) {
+              state.screenShake = 22;
+            }
+            audioManager.playMine();
+            triggerHaptic('error');
+            createExplosion(targetPxX, targetPxY, '#FF0054', 28);
+
+            state.floatingTexts.push(
+              floatingTextPool.acquire(
+                `fl_${Date.now()}_${Math.random()}`,
+                `⚠️ HAZARD! -3s | -250 PTS`,
+                targetPxX,
+                targetPxY,
+                '#FF0054',
+                1.6
+              )
+            );
+
+            state.clickLogs.push({
+              timestampMs: Math.round(nowOffset),
+              xPct: tapXPct,
+              yPct: tapYPct,
+              type: 'hit',
+              targetId: target.id,
+              targetType: target.type,
+              hit: true,
+              scoreGained: -250,
+            });
+            break;
+          }
+
+          // 2. BOSS METEOR MULTI-HIT TARGET
           if (target.type === 'boss_meteor') {
             if (target.hp > 1) {
               target.hp -= 1;
               state.score += 100;
-              audioManager.playTap(state.multiplier);
+              state.combo++;
+              if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+              state.multiplier = getComboMultiplier(state.combo);
+
+              audioManager.playTap(state.combo);
               triggerHaptic('medium');
               createExplosion(targetPxX, targetPxY, target.color, 12);
               state.floatingTexts.push(
@@ -337,37 +387,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               });
               break;
             } else {
-              // Defeated on final blow
+              // Final blow on Boss
               state.targets.splice(i, 1);
               state.combo++;
               if (state.combo > state.maxCombo) state.maxCombo = state.combo;
-              const comboMultiplier = 1 + Math.floor(state.combo / 5) * 0.25;
-              state.multiplier = comboMultiplier;
-              const pointsGained = Math.round(target.points * comboMultiplier);
+              state.multiplier = getComboMultiplier(state.combo);
+              const pointsGained = Math.round(target.points * state.multiplier);
               state.score += pointsGained;
               state.bossesDefeated++;
-              createExplosion(targetPxX, targetPxY, target.color, 28);
+              createExplosion(targetPxX, targetPxY, target.color, 32);
               audioManager.playBeacon();
 
-              const isMilestone = state.combo > 0 && state.combo % 10 === 0;
-              if (isMilestone) {
-                triggerHaptic('impact');
-              } else {
-                triggerHaptic('heavy');
-              }
+              triggerHaptic('impact');
 
-              if (isMilestone) {
-                state.floatingTexts.push(
-                  floatingTextPool.acquire(
-                    `fl_combo_${Date.now()}_${state.combo}`,
-                    `🔥 ${state.combo}x COMBO MILESTONE!`,
-                    targetPxX,
-                    targetPxY - 26,
-                    '#00F5D4',
-                    1.6
-                  )
-                );
-              }
               state.floatingTexts.push(
                 floatingTextPool.acquire(
                   `fl_${Date.now()}_${Math.random()}`,
@@ -392,124 +424,102 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             }
           }
 
-          // Standard targets
+          // 3. STANDARD VALID TARGETS
           state.targets.splice(i, 1);
-
-          if (target.type === 'mine' || target.type === 'black_hole') {
-            if (target.type === 'mine') state.minesHit++;
-            if (target.type === 'black_hole') state.blackHolesHit++;
-
-            state.combo = 0;
-            state.multiplier = 1;
-            const penalty = target.points;
-            state.score = Math.max(0, state.score + penalty);
-            if (!reduceMotion) {
-              state.screenShake = 16;
-            }
-            audioManager.playMine();
-            triggerHaptic('error');
-            createExplosion(targetPxX, targetPxY, target.color, 22);
-
-            state.floatingTexts.push(
-              floatingTextPool.acquire(
-                `fl_${Date.now()}_${Math.random()}`,
-                `${target.type === 'mine' ? '💥 DANGER MINE!' : '🌌 BLACK HOLE!'} ${penalty}`,
-                targetPxX,
-                targetPxY,
-                target.color,
-                1.3
-              )
-            );
-
-            state.clickLogs.push({
-              timestampMs: Math.round(nowOffset),
-              xPct: tapXPct,
-              yPct: tapYPct,
-              type: 'hit',
-              targetId: target.id,
-              targetType: target.type,
-              hit: true,
-              scoreGained: penalty,
-            });
-          } else {
-            // Positive targets
-            state.combo++;
-            if (state.combo > state.maxCombo) {
-              state.maxCombo = state.combo;
-            }
-
-            const comboMultiplier = 1 + Math.floor(state.combo / 5) * 0.25;
-            state.multiplier = comboMultiplier;
-
-            const bonusMultiplier = target.type === 'double_beacon' ? 2 : 1;
-            const pointsGained = Math.round(target.points * comboMultiplier * bonusMultiplier);
-            state.score += pointsGained;
-
-            const isMilestone = state.combo > 0 && state.combo % 10 === 0;
-
-            if (isMilestone) {
-              triggerHaptic('impact');
-            } else if (target.type === 'golden_beacon' || target.type === 'double_beacon') {
-              triggerHaptic('heavy');
-            } else {
-              triggerHaptic('light');
-            }
-
-            if (target.type === 'golden_beacon' || target.type === 'double_beacon') {
-              state.goldenBeaconsHit++;
-              audioManager.playBeacon();
-              createExplosion(targetPxX, targetPxY, target.color, 24);
-            } else {
-              audioManager.playTap(comboMultiplier);
-              createExplosion(targetPxX, targetPxY, target.color, 16);
-            }
-
-            if (isMilestone) {
-              state.floatingTexts.push(
-                floatingTextPool.acquire(
-                  `fl_combo_${Date.now()}_${state.combo}`,
-                  `🔥 ${state.combo}x COMBO MILESTONE!`,
-                  targetPxX,
-                  targetPxY - 26,
-                  '#00F5D4',
-                  1.5
-                )
-              );
-            }
-
-            state.floatingTexts.push(
-              floatingTextPool.acquire(
-                `fl_${Date.now()}_${Math.random()}`,
-                comboMultiplier > 1 ? `+${pointsGained} (x${comboMultiplier.toFixed(2)})` : `+${pointsGained}`,
-                targetPxX,
-                targetPxY,
-                target.color,
-                1 + comboMultiplier * 0.1
-              )
-            );
-
-            state.clickLogs.push({
-              timestampMs: Math.round(nowOffset),
-              xPct: tapXPct,
-              yPct: tapYPct,
-              type: 'hit',
-              targetId: target.id,
-              targetType: target.type,
-              hit: true,
-              scoreGained: pointsGained,
-            });
+          state.hits++;
+          state.combo++;
+          if (state.combo > state.maxCombo) {
+            state.maxCombo = state.combo;
           }
+
+          state.multiplier = getComboMultiplier(state.combo);
+
+          const bonusMultiplier = target.type === 'double_beacon' ? 2 : 1;
+          const pointsGained = Math.round(target.points * state.multiplier * bonusMultiplier);
+          state.score += pointsGained;
+
+          const isMilestone = state.combo > 0 && state.combo % 5 === 0;
+
+          if (isMilestone) {
+            triggerHaptic('impact');
+          } else if (target.type === 'golden_beacon' || target.type === 'double_beacon') {
+            triggerHaptic('heavy');
+          } else {
+            triggerHaptic('light');
+          }
+
+          if (target.type === 'golden_beacon' || target.type === 'double_beacon') {
+            state.goldenBeaconsHit++;
+            audioManager.playBeacon();
+            createExplosion(targetPxX, targetPxY, target.color, 24);
+          } else {
+            audioManager.playTap(state.combo);
+            createExplosion(targetPxX, targetPxY, target.color, 16);
+          }
+
+          if (isMilestone) {
+            state.floatingTexts.push(
+              floatingTextPool.acquire(
+                `fl_combo_${Date.now()}_${state.combo}`,
+                `🔥 ${state.combo}x STREAK! (${state.multiplier}x BOOST)`,
+                targetPxX,
+                targetPxY - 26,
+                '#00F5D4',
+                1.5
+              )
+            );
+          }
+
+          state.floatingTexts.push(
+            floatingTextPool.acquire(
+              `fl_${Date.now()}_${Math.random()}`,
+              state.multiplier > 1 ? `+${pointsGained} (${state.multiplier}x)` : `+${pointsGained}`,
+              targetPxX,
+              targetPxY,
+              target.color,
+              1 + state.multiplier * 0.1
+            )
+          );
+
+          state.clickLogs.push({
+            timestampMs: Math.round(nowOffset),
+            xPct: tapXPct,
+            yPct: tapYPct,
+            type: 'hit',
+            targetId: target.id,
+            targetType: target.type,
+            hit: true,
+            scoreGained: pointsGained,
+          });
 
           break;
         }
       }
 
+      // MISS PENALTY (Tapping empty space)
       if (!hitFound) {
         state.misses++;
-        state.combo = 0;
-        state.multiplier = 1;
+        // Penalty: -1 second deduction & -50 points
+        state.roundStartTime -= 1000;
+        state.score = Math.max(0, state.score - 50);
+
+        // Grace combo reduction (-1 combo step) instead of resetting 20x combo to 0!
+        state.combo = Math.max(0, state.combo - 1);
+        state.multiplier = getComboMultiplier(state.combo);
+
         audioManager.playTap(1);
         triggerHaptic('selection');
+
+        state.floatingTexts.push(
+          floatingTextPool.acquire(
+            `fl_miss_${Date.now()}`,
+            `⏱️ -1s | -50 PTS`,
+            touchX,
+            touchY,
+            '#FFB703',
+            1.2
+          )
+        );
 
         state.clickLogs.push({
           timestampMs: Math.round(nowOffset),
@@ -517,7 +527,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           yPct: tapYPct,
           type: 'miss',
           hit: false,
-          scoreGained: 0,
+          scoreGained: -50,
         });
       }
 
@@ -605,7 +615,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         state.timeLeft = Math.max(0, state.roundDuration - elapsedMs / 1000);
         onTimeUpdate(Math.ceil(state.timeLeft));
 
-        // Deterministic target spawning based on scheduled timestamp
+        // Spawn scheduled targets
         while (
           nextTargetIndexRef.current < scheduledTargetsRef.current.length &&
           scheduledTargetsRef.current[nextTargetIndexRef.current].spawnTimeMs <= elapsedMs
@@ -616,11 +626,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             type: st.type,
             x: st.xPct,
             y: st.yPct,
-            vx: 0,
-            vy: 0,
+            vx: st.vxPct ?? 0,
+            vy: st.vyPct ?? 0,
             radius: st.radius,
             rotation: 0,
-            vRot: 0,
+            vRot: (Math.random() - 0.5) * 2,
             points: st.points,
             maxHp: st.maxHp || 1,
             hp: st.maxHp || 1,
@@ -634,9 +644,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           nextTargetIndexRef.current++;
         }
 
-        // Despawn expired targets
+        // Update target positions with drift trajectories
         for (let i = state.targets.length - 1; i >= 0; i--) {
           const target = state.targets[i];
+          target.x += target.vx * deltaTime;
+          target.y += target.vy * deltaTime;
+
+          // Clamp within visible boundaries
+          if (target.x < 8 || target.x > 92) target.vx *= -1;
+          if (target.y < 12 || target.y > 78) target.vy *= -1;
+
           const targetAgeMs = elapsedMs - (target.spawnTimeMs ?? (target.spawnTime - state.roundStartTime));
           if (targetAgeMs > target.lifespan) {
             state.targets.splice(i, 1);
@@ -694,11 +711,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, width, height);
 
-      // Vanishing point center for forward 3D space warp flight
       const vanishingX = width * 0.5;
       const vanishingY = height * 0.38;
 
-      // Warp Speed Flight Factor (Accelerates with combo)
       const warpSpeed = (800 + Math.min(state.combo, 25) * 120) * (reduceMotion ? 0.4 : 1.0);
 
       // 1. Draw Deep Space Galactic Nebula Clouds
@@ -730,7 +745,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       ctx.globalAlpha = 1.0;
 
-      // 2. 3D Perspective Hyper-Speed Warp Starfield (Speed Lines)
+      // 2. 3D Perspective Hyper-Speed Warp Starfield
       ctx.lineWidth = 1.5;
       for (let i = 0; i < state.warpStars.length; i++) {
         const star = state.warpStars[i];
@@ -746,7 +761,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         const currX = vanishingX + star.x * kCurr;
         const currY = vanishingY + star.y * kCurr;
 
-        // Trail length projected from previous frame position
         const prevZ = star.z + warpSpeed * deltaTime * (reduceMotion ? 1.0 : 2.5);
         const kPrev = 400 / prevZ;
         const prevX = vanishingX + star.x * kPrev;
@@ -765,9 +779,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       ctx.globalAlpha = 1.0;
 
-
-
-      // 4. Render Active Target Objects
+      // 3. Render Active Target Objects
       const elapsedMs = currentTime - state.roundStartTime;
       for (let i = state.targets.length - 1; i >= 0; i--) {
         const target = state.targets[i];
@@ -783,15 +795,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.scale(targetScale, targetScale);
 
         if (target.type === 'mine') {
+          // Forbidden Crimson Hazard Mine
           ctx.fillStyle = '#FF0054';
           ctx.strokeStyle = '#FFFFFF';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 2.5;
 
           ctx.beginPath();
           const spikes = 8;
           for (let s = 0; s < spikes * 2; s++) {
             const angle = (Math.PI / spikes) * s;
-            const r = s % 2 === 0 ? target.radius * 1.1 : target.radius * 0.65;
+            const r = s % 2 === 0 ? target.radius * 1.15 : target.radius * 0.65;
             const x = Math.cos(angle) * r;
             const y = Math.sin(angle) * r;
             if (s === 0) ctx.moveTo(x, y);
@@ -800,7 +813,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ctx.closePath();
           ctx.fill();
           ctx.stroke();
+
+          // Flashing Warning Pulse Ring
+          const pulse = Math.sin(currentTime * 0.015) * 6;
+          ctx.strokeStyle = '#FF0054';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, target.radius + 8 + pulse, 0, Math.PI * 2);
+          ctx.stroke();
         } else if (target.type === 'black_hole') {
+          // Forbidden Black Hole
           ctx.fillStyle = '#0B071E';
           ctx.strokeStyle = '#7000FF';
           ctx.lineWidth = 3;
@@ -809,11 +831,50 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ctx.fill();
           ctx.stroke();
 
-          ctx.strokeStyle = '#00F5D4';
-          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = '#FF0054';
+          ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(0, 0, target.radius * 0.5, 0, Math.PI * 2);
+          ctx.arc(0, 0, target.radius * 0.6, 0, Math.PI * 2);
           ctx.stroke();
+        } else if (target.type === 'decoy_satellite') {
+          // Forbidden Decoy Satellite
+          ctx.fillStyle = '#FF3300';
+          ctx.strokeStyle = '#FFD700';
+          ctx.lineWidth = 2;
+
+          ctx.fillRect(-18, -12, 36, 24);
+          ctx.strokeRect(-18, -12, 36, 24);
+
+          // Solar wings
+          ctx.fillStyle = '#1D3557';
+          ctx.fillRect(-34, -6, 14, 12);
+          ctx.fillRect(20, -6, 14, 12);
+
+          // Warning hazard cross
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(-10, -8);
+          ctx.lineTo(10, 8);
+          ctx.moveTo(10, -8);
+          ctx.lineTo(-10, 8);
+          ctx.stroke();
+        } else if (target.type === 'emp_pulse') {
+          // Forbidden EMP Pulse
+          ctx.fillStyle = '#FF007F';
+          ctx.strokeStyle = '#FFB703';
+          ctx.lineWidth = 2;
+
+          ctx.beginPath();
+          ctx.arc(0, 0, target.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 16px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('⚡', 0, 0);
         } else if (target.type === 'golden_beacon') {
           ctx.fillStyle = '#FFB703';
           if (perfConfig.enableGlowBlur) {
@@ -921,7 +982,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.restore();
       }
 
-      // 5. Render Laser Beam Flashes on Tap
+      // 4. Render Laser Beam Flashes on Tap
       for (let i = state.laserFlashes.length - 1; i >= 0; i--) {
         const lf = state.laserFlashes[i];
         lf.alpha -= deltaTime * 4.0;
@@ -946,8 +1007,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       ctx.globalAlpha = 1.0;
 
-      // 6. RENDER EQUIPPED USER SPACESHIP WITH THRUSTERS & PARTICLES
-      // Smoothly interpolate ship sway and banking
+      // 5. RENDER EQUIPPED USER SPACESHIP WITH THRUSTERS & PARTICLES
       state.shipSwayX += (state.targetShipSwayX - state.shipSwayX) * 0.1;
       state.shipBankAngle = (state.targetShipSwayX - state.shipSwayX) * 0.0008;
 
@@ -968,7 +1028,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         });
       }
 
-      // Render & Update Engine Particles
       for (let i = state.engineParticles.length - 1; i >= 0; i--) {
         const ep = state.engineParticles[i];
         ep.x += ep.vx * deltaTime;
@@ -991,9 +1050,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.translate(shipX, shipY);
       ctx.rotate(state.shipBankAngle);
 
-      // Glowing Rear Engine Plumes
       const pulseEngine = Math.sin(currentTime * 0.02) * 4;
-      const thrusterGrad = ctx.createLinearGradient(0, 15, 0, 45 + pulseEngine);
+      const thrusterGrad = ctx.createLinearGradient(0, 15, 0, 42 + pulseEngine);
       thrusterGrad.addColorStop(0, '#FFFFFF');
       thrusterGrad.addColorStop(0.3, shipColor);
       thrusterGrad.addColorStop(1, 'transparent');
@@ -1006,9 +1064,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.closePath();
       ctx.fill();
 
-      // Render Ship Model Silhouette based on shipId
       if (shipId === 'ship_retro_shuttle') {
-        // Retro 80s Shuttle
         ctx.fillStyle = shipColor;
         ctx.strokeStyle = shipAccentColor;
         ctx.lineWidth = 2;
@@ -1026,11 +1082,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.fill();
         ctx.stroke();
 
-        // Cockpit
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(-4, -14, 8, 12);
       } else if (shipId === 'ship_neon_falcon') {
-        // Neon Falcon
         ctx.fillStyle = shipColor;
         ctx.strokeStyle = shipAccentColor;
         ctx.lineWidth = 2;
@@ -1046,13 +1100,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.fill();
         ctx.stroke();
 
-        // Energy Core
         ctx.fillStyle = '#00F5D4';
         ctx.beginPath();
         ctx.arc(0, -4, 5, 0, Math.PI * 2);
         ctx.fill();
       } else if (shipId === 'ship_plasma_crusher') {
-        // Heavy Plasma Crusher
         ctx.fillStyle = shipColor;
         ctx.strokeStyle = shipAccentColor;
         ctx.lineWidth = 2.5;
@@ -1070,13 +1122,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.fill();
         ctx.stroke();
 
-        // Crimson Cockpit Gem
         ctx.fillStyle = '#FF0054';
         ctx.beginPath();
         ctx.arc(0, -8, 6, 0, Math.PI * 2);
         ctx.fill();
       } else {
-        // Cyber Wing (Standard Starfighter)
         ctx.fillStyle = shipColor;
         ctx.strokeStyle = shipAccentColor;
         ctx.lineWidth = 2;
@@ -1092,14 +1142,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.fill();
         ctx.stroke();
 
-        // Cockpit Glass
         ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
         ctx.ellipse(0, -10, 4, 10, 0, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // Wingtip Navigation Lights
       ctx.fillStyle = '#00F5D4';
       ctx.beginPath();
       ctx.arc(-22, 12, 2.5, 0, Math.PI * 2);
@@ -1108,7 +1156,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       ctx.restore();
 
-      // 7. Render Explosions & Tap Particles
+      // 6. Render Explosions & Tap Particles
       for (let i = state.particles.length - 1; i >= 0; i--) {
         const p = state.particles[i];
         p.x += p.vx * deltaTime;
@@ -1127,7 +1175,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       ctx.globalAlpha = 1.0;
 
-      // 8. Render Floating Score Text
+      // 7. Render Floating Score Text
       for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
         const ft = state.floatingTexts[i];
         ft.y -= 40 * deltaTime;

@@ -1,4 +1,14 @@
-export type TargetType = 'asteroid' | 'golden_beacon' | 'comet' | 'mine' | 'magnet' | 'double_beacon' | 'black_hole' | 'boss_meteor';
+export type TargetType =
+  | 'asteroid'
+  | 'golden_beacon'
+  | 'comet'
+  | 'mine'
+  | 'magnet'
+  | 'double_beacon'
+  | 'black_hole'
+  | 'boss_meteor'
+  | 'decoy_satellite'
+  | 'emp_pulse';
 
 export interface SharedTarget {
   id: string;
@@ -9,6 +19,8 @@ export interface SharedTarget {
   speed: number;
   xPct: number; // Spawn X percentage (0 to 100)
   yPct: number; // Spawn Y percentage (0 to 100)
+  vxPct?: number; // Drift velocity X
+  vyPct?: number; // Drift velocity Y
   durationMs: number; // Target active lifespan
   maxHp?: number; // For boss_meteor
 }
@@ -46,6 +58,10 @@ export interface RecalculationResult {
   flags: string[];
 }
 
+export function isForbiddenTarget(type: TargetType): boolean {
+  return type === 'mine' || type === 'black_hole' || type === 'decoy_satellite' || type === 'emp_pulse';
+}
+
 export function getTargetColor(type: TargetType): string {
   switch (type) {
     case 'golden_beacon':
@@ -60,6 +76,10 @@ export function getTargetColor(type: TargetType): string {
       return '#FF0054';
     case 'black_hole':
       return '#1D3557';
+    case 'decoy_satellite':
+      return '#FF3300';
+    case 'emp_pulse':
+      return '#FF007F';
     case 'boss_meteor':
       return '#FB8500';
     case 'asteroid':
@@ -73,6 +93,15 @@ export function normalizeMode(mode?: string): 'classic' | 'blitz' | 'survival' |
   if (mode === 'survival') return 'survival';
   if (mode === 'rhythm') return 'rhythm';
   return 'classic';
+}
+
+export function getComboMultiplier(combo: number): number {
+  if (combo >= 20) return 5.0;
+  if (combo >= 15) return 4.0;
+  if (combo >= 10) return 3.0;
+  if (combo >= 6) return 2.0;
+  if (combo >= 3) return 1.5;
+  return 1.0;
 }
 
 // Pseudo-random number generator using Linear Congruential Generator (LCG)
@@ -89,81 +118,177 @@ export function seededRandom(seedStr: string): () => number {
   };
 }
 
-// Deterministically generate targets based on seed and mode
+// Deterministically generate unique targets based on seed and mode
 export function generateRoundTargets(seed: string, mode: string = 'classic'): SharedTarget[] {
   const normMode = normalizeMode(mode);
   const rng = seededRandom(seed);
   const targets: SharedTarget[] = [];
-  
+
   let durationMs = 45000;
   if (normMode === 'blitz') durationMs = 20000;
   if (normMode === 'survival') durationMs = 60000;
   if (normMode === 'rhythm') durationMs = 45000;
 
-  let currentMs = 500;
+  let currentMs = 400;
   let idCounter = 1;
 
-  while (currentMs < durationMs - 1000) {
+  while (currentMs < durationMs - 800) {
+    const progressRatio = currentMs / durationMs;
     const rType = rng();
+
     let type: TargetType = 'asteroid';
     let points = 100;
     let radius = 28;
     let speed = 1.0;
-    let lifespanMs = 2500;
+    let lifespanMs = 2600;
     let maxHp = 1;
+    let vxPct = (rng() - 0.5) * 4;
+    let vyPct = (rng() - 0.5) * 4;
 
-    // Balance weights across target types
-    if (rType < 0.10) {
-      type = 'golden_beacon';
-      points = 300;
-      radius = 22;
-      speed = 1.4;
-      lifespanMs = 2000;
-    } else if (rType < 0.18) {
-      type = 'double_beacon';
-      points = 450;
-      radius = 23;
-      speed = 1.5;
-      lifespanMs = 1900;
-    } else if (rType < 0.28) {
-      type = 'comet';
-      points = 200;
-      radius = 24;
-      speed = 2.1;
-      lifespanMs = 1700;
-    } else if (rType < 0.38) {
-      type = 'magnet';
-      points = 250;
-      radius = 25;
-      speed = 1.2;
-      lifespanMs = 2200;
-    } else if (rType < 0.52) {
-      type = 'mine';
-      points = -150;
-      radius = 26;
-      speed = 0.9;
-      lifespanMs = 3000;
-    } else if (rType < 0.58) {
-      type = 'black_hole';
-      points = -250;
-      radius = 32;
-      speed = 0.6;
-      lifespanMs = 3500;
-    } else if (rType < 0.62) {
-      type = 'boss_meteor';
-      points = 800;
-      radius = 42;
-      speed = 0.7;
-      lifespanMs = 5000;
-      maxHp = 3;
+    // 5 Distinct Gameplay Wave Phases across the round duration
+    if (progressRatio < 0.18) {
+      // Phase 1: Warmup Wave (high percentage valid targets to build initial combo)
+      if (rType < 0.25) {
+        type = 'golden_beacon';
+        points = 300;
+        radius = 23;
+        lifespanMs = 2400;
+      } else if (rType < 0.45) {
+        type = 'comet';
+        points = 200;
+        radius = 24;
+        lifespanMs = 2200;
+      } else {
+        type = 'asteroid';
+        points = 100;
+        radius = 28;
+      }
+    } else if (progressRatio < 0.40) {
+      // Phase 2: Comet & Beacon Stream (Fast, rewarding targets)
+      if (rType < 0.20) {
+        type = 'golden_beacon';
+        points = 300;
+        radius = 22;
+        lifespanMs = 2000;
+      } else if (rType < 0.38) {
+        type = 'double_beacon';
+        points = 450;
+        radius = 23;
+        lifespanMs = 1900;
+      } else if (rType < 0.58) {
+        type = 'comet';
+        points = 200;
+        radius = 22;
+        lifespanMs = 1800;
+      } else if (rType < 0.72) {
+        type = 'magnet';
+        points = 250;
+        radius = 25;
+        lifespanMs = 2200;
+      } else if (rType < 0.88) {
+        type = 'mine'; // Hazard mine!
+        points = -250;
+        radius = 26;
+        lifespanMs = 3200;
+      } else {
+        type = 'asteroid';
+        points = 100;
+        radius = 28;
+      }
+    } else if (progressRatio < 0.70) {
+      // Phase 3: Hazard Minefield & Decoy Trap (Requires precise target identification!)
+      if (rType < 0.20) {
+        type = 'mine'; // Forbidden Hazard!
+        points = -250;
+        radius = 26;
+        lifespanMs = 3500;
+      } else if (rType < 0.32) {
+        type = 'black_hole'; // Forbidden Hazard!
+        points = -350;
+        radius = 32;
+        lifespanMs = 3800;
+      } else if (rType < 0.44) {
+        type = 'decoy_satellite'; // Forbidden Hazard Decoy!
+        points = -200;
+        radius = 25;
+        lifespanMs = 3000;
+      } else if (rType < 0.60) {
+        type = 'golden_beacon';
+        points = 300;
+        radius = 22;
+        lifespanMs = 2000;
+      } else if (rType < 0.78) {
+        type = 'double_beacon';
+        points = 450;
+        radius = 22;
+        lifespanMs = 1800;
+      } else {
+        type = 'comet';
+        points = 200;
+        radius = 22;
+        lifespanMs = 1800;
+      }
+    } else if (progressRatio < 0.88) {
+      // Phase 4: Boss Meteor & Elite Armada
+      if (rType < 0.15) {
+        type = 'boss_meteor';
+        points = 800;
+        radius = 42;
+        lifespanMs = 6000;
+        maxHp = 3;
+      } else if (rType < 0.35) {
+        type = 'emp_pulse'; // Forbidden Hazard!
+        points = -300;
+        radius = 28;
+        lifespanMs = 3000;
+      } else if (rType < 0.55) {
+        type = 'double_beacon';
+        points = 450;
+        radius = 22;
+        lifespanMs = 1800;
+      } else if (rType < 0.75) {
+        type = 'golden_beacon';
+        points = 300;
+        radius = 22;
+        lifespanMs = 1900;
+      } else {
+        type = 'magnet';
+        points = 250;
+        radius = 24;
+        lifespanMs = 2100;
+      }
+    } else {
+      // Phase 5: Hyper Overdrive Climax (Rapid high-value targets)
+      if (rType < 0.30) {
+        type = 'double_beacon';
+        points = 450;
+        radius = 20;
+        lifespanMs = 1600;
+      } else if (rType < 0.60) {
+        type = 'golden_beacon';
+        points = 300;
+        radius = 21;
+        lifespanMs = 1700;
+      } else if (rType < 0.80) {
+        type = 'comet';
+        points = 200;
+        radius = 22;
+        lifespanMs = 1600;
+      } else {
+        type = 'mine';
+        points = -250;
+        radius = 25;
+        lifespanMs = 2800;
+      }
     }
 
-    // Adaptive difficulty: speed & density increase slightly over time
-    const progressFactor = currentMs / durationMs;
-    speed *= (1 + progressFactor * 0.35);
+    // Dynamic difficulty: speed & drift velocity increase over time
+    speed *= 1 + progressRatio * 0.4;
+    vxPct *= 1 + progressRatio * 0.5;
+    vyPct *= 1 + progressRatio * 0.5;
 
     const xPct = 12 + rng() * 76;
-    const yPct = 18 + rng() * 64;
+    const yPct = 18 + rng() * 62;
 
     targets.push({
       id: `t_${idCounter++}`,
@@ -174,16 +299,17 @@ export function generateRoundTargets(seed: string, mode: string = 'classic'): Sh
       speed: Number(speed.toFixed(2)),
       xPct: Number(xPct.toFixed(1)),
       yPct: Number(yPct.toFixed(1)),
+      vxPct: Number(vxPct.toFixed(2)),
+      vyPct: Number(vyPct.toFixed(2)),
       durationMs: lifespanMs,
       maxHp,
     });
 
-    // Spawn interval adjusted by mode
-    let intervalBase = 700;
-    if (normMode === 'blitz') intervalBase = 450;
-    if (normMode === 'rhythm') intervalBase = 600;
+    let intervalBase = 650;
+    if (normMode === 'blitz') intervalBase = 400;
+    if (normMode === 'rhythm') intervalBase = 550;
 
-    const nextInterval = intervalBase + rng() * 600 * (1 - progressFactor * 0.3);
+    const nextInterval = intervalBase + rng() * 500 * (1 - progressRatio * 0.35);
     currentMs += nextInterval;
   }
 
@@ -200,34 +326,49 @@ export function evaluateHit(
   pointsDelta: number;
   nextCombo: number;
   comboMultiplier: number;
+  isForbidden: boolean;
 } {
+  if (isForbiddenTarget(target.type)) {
+    return {
+      isBossIntermediateHit: false,
+      remainingHp: 0,
+      pointsDelta: target.points, // Negative penalty points
+      nextCombo: 0, // Reset combo on forbidden hazard hit
+      comboMultiplier: 1,
+      isForbidden: true,
+    };
+  }
+
   if (target.type === 'boss_meteor' && currentHp > 1) {
+    const nextCombo = currentCombo + 1;
     return {
       isBossIntermediateHit: true,
       remainingHp: currentHp - 1,
       pointsDelta: 100,
-      nextCombo: currentCombo,
-      comboMultiplier: 1 + Math.floor(currentCombo / 5) * 0.25,
+      nextCombo,
+      comboMultiplier: getComboMultiplier(nextCombo),
+      isForbidden: false,
     };
   }
 
-  const nextCombo = target.points > 0 ? currentCombo + 1 : 0;
-  const comboMultiplier = 1 + Math.floor(nextCombo / 5) * 0.25;
+  const nextCombo = currentCombo + 1;
+  const comboMultiplier = getComboMultiplier(nextCombo);
   const bonusMultiplier = target.type === 'double_beacon' ? 2 : 1;
-  const pointsDelta = target.points > 0
-    ? Math.round(target.points * comboMultiplier * bonusMultiplier)
-    : target.points;
+  const pointsDelta = Math.round(target.points * comboMultiplier * bonusMultiplier);
 
   return {
     isBossIntermediateHit: false,
     remainingHp: 0,
     pointsDelta,
     nextCombo,
-    comboMultiplier: target.points > 0 ? comboMultiplier : 1,
+    comboMultiplier,
+    isForbidden: false,
   };
 }
 
-let customRecalculateHandler: ((seed: string, clickLogs: ClickLog[], durationMs: number, mode?: string) => RecalculationResult) | null = null;
+let customRecalculateHandler:
+  | ((seed: string, clickLogs: ClickLog[], durationMs: number, mode?: string) => RecalculationResult)
+  | null = null;
 
 export function setCustomRecalculateHandler(handler: typeof customRecalculateHandler) {
   customRecalculateHandler = handler;
@@ -267,11 +408,10 @@ export function recalculateRound(
   const normMode = normalizeMode(mode);
   const isTestEnv = process.env.NODE_ENV === 'test' || mode === 'test';
 
-  // Duration validation based on mode
-  let minDuration = isTestEnv ? 100 : 38000;
-  let maxDuration = 55000;
+  let minDuration = isTestEnv ? 100 : 35000;
+  let maxDuration = 58000;
   if (normMode === 'blitz') {
-    minDuration = isTestEnv ? 100 : 15000;
+    minDuration = isTestEnv ? 100 : 12000;
     maxDuration = 28000;
   } else if (normMode === 'survival') {
     minDuration = isTestEnv ? 100 : 5000;
@@ -283,14 +423,12 @@ export function recalculateRound(
     return failResult('Invalid round duration');
   }
 
-  // Normalize logs
   const normalizedLogs = clickLogs.map((log) => ({
     ...log,
     timestampMs: log.timestampMs ?? log.timestamp ?? 0,
     type: log.type ?? (log.hit ? 'hit' : 'miss'),
   }));
 
-  // Tap frequency check (max 20 clicks/sec sliding window)
   if (normalizedLogs.length > 0) {
     const sortedLogs = [...normalizedLogs].sort((a, b) => a.timestampMs - b.timestampMs);
     let left = 0;
@@ -299,7 +437,7 @@ export function recalculateRound(
         left++;
       }
       const cps = right - left + 1;
-      if (cps > 20) {
+      if (cps > 22) {
         flags.push(`autoclicker_cps_${cps}`);
         return failResult('Unnatural tap frequency detected');
       }
@@ -320,16 +458,13 @@ export function recalculateRound(
   let blackHolesHit = 0;
   let bossesDefeated = 0;
 
-  // Track boss HP on server validation
   const bossHpTracker = new Map<string, number>();
-
-  // Track destroyed/defeated targets to prevent duplicate/multi-hit exploitation
   const hitTargets = new Set<string>();
 
   for (const log of normalizedLogs) {
     if (typeof log.timestampMs !== 'number' || !isFinite(log.timestampMs) || log.timestampMs < 0) {
       misses++;
-      combo = 0;
+      combo = Math.max(0, combo - 1);
       flags.push('invalid_timestamp');
       continue;
     }
@@ -337,17 +472,16 @@ export function recalculateRound(
     if (log.type === 'hit') {
       if (!log.targetId || !targetMap.has(log.targetId)) {
         misses++;
-        combo = 0;
+        combo = Math.max(0, combo - 1);
         flags.push(`phantom_hit_target_${log.targetId}`);
         continue;
       }
 
       const target = targetMap.get(log.targetId)!;
 
-      // Prevent hit on already destroyed / defeated target
       if (hitTargets.has(target.id)) {
         misses++;
-        combo = 0;
+        combo = Math.max(0, combo - 1);
         flags.push(`duplicate_hit_${target.id}`);
         continue;
       }
@@ -357,19 +491,26 @@ export function recalculateRound(
         log.timestampMs > target.spawnTimeMs + target.durationMs + 500
       ) {
         misses++;
-        combo = 0;
+        combo = Math.max(0, combo - 1);
         flags.push(`out_of_window_hit_${target.id}`);
         continue;
       }
 
-      // Spatial distance check (click proximity to target coordinates in percent)
       const dx = (log.xPct ?? target.xPct) - target.xPct;
       const dy = (log.yPct ?? target.yPct) - target.yPct;
       const distanceSq = dx * dx + dy * dy;
-      if (distanceSq > 400) { // ~20% max distance tolerance
+      if (distanceSq > 400) {
         misses++;
-        combo = 0;
+        combo = Math.max(0, combo - 1);
         flags.push(`out_of_hitbox_${target.id}`);
+        continue;
+      }
+
+      if (isForbiddenTarget(target.type)) {
+        hitTargets.add(target.id);
+        minesHit++;
+        combo = 0; // Wipe combo on forbidden hazard
+        score = Math.max(0, score + target.points);
         continue;
       }
 
@@ -378,6 +519,8 @@ export function recalculateRound(
         if (currentHp > 1) {
           bossHpTracker.set(target.id, currentHp - 1);
           hits++;
+          combo++;
+          if (combo > maxCombo) maxCombo = combo;
           score += 100;
           continue;
         } else {
@@ -394,20 +537,15 @@ export function recalculateRound(
       if (combo > maxCombo) maxCombo = combo;
 
       if (target.type === 'golden_beacon' || target.type === 'double_beacon') goldenBeaconsHit++;
-      if (target.type === 'mine') minesHit++;
-      if (target.type === 'black_hole') blackHolesHit++;
 
-      const comboMultiplier = 1 + Math.floor(combo / 5) * 0.25;
-      if (target.points > 0) {
-        const bonusMultiplier = target.type === 'double_beacon' ? 2 : 1;
-        score += Math.round(target.points * comboMultiplier * bonusMultiplier);
-      } else {
-        score = Math.max(0, score + target.points);
-        combo = 0;
-      }
+      const comboMultiplier = getComboMultiplier(combo);
+      const bonusMultiplier = target.type === 'double_beacon' ? 2 : 1;
+      score += Math.round(target.points * comboMultiplier * bonusMultiplier);
     } else {
       misses++;
-      combo = 0;
+      // A miss reduces combo by 1 instead of wiping out combo completely!
+      combo = Math.max(0, combo - 1);
+      score = Math.max(0, score - 50);
     }
   }
 
