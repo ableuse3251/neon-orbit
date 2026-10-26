@@ -8,7 +8,11 @@ const botToken = rawBotToken.trim().replace(/^["']|["']$/g, '');
 const jwtSecret = process.env.JWT_SECRET || (botToken ? `jwt_${botToken.slice(-12)}` : 'default_jwt_secret_change_me');
 const webhookSecret = process.env.WEBHOOK_SECRET || (botToken ? `wh_${botToken.slice(-12)}` : 'default_webhook_secret');
 const metricsSecret = process.env.METRICS_SECRET || (botToken ? `m_${botToken.slice(-12)}` : 'default_metrics_secret');
-const databaseUrl = (process.env.DATABASE_URL || process.env.POSTGRES_URL || '').trim();
+const rawDatabaseUrl = (process.env.DATABASE_URL || process.env.POSTGRES_URL || '').trim();
+const databaseUrl =
+  rawDatabaseUrl.startsWith('postgres://') || rawDatabaseUrl.startsWith('postgresql://')
+    ? rawDatabaseUrl
+    : '';
 
 export function parseAllowedOrigins(input?: string): string[] {
   if (!input) return [];

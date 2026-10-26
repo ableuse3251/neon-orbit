@@ -41,13 +41,7 @@ async function startServer() {
     logger.info(`Neon Orbit server listening on http://0.0.0.0:${config.port} (role: ${appRole}, env: ${config.nodeEnv})`);
   });
 
-  // 2. Start background workers for standalone process mode
-  if (appRole === 'all' || appRole === 'worker') {
-    startNotificationWorker();
-    startPaymentReconciliationWorker();
-  }
-
-  // 3. Run migrations after server is listening
+  // 2. Run migrations after server is listening
   try {
     await runMigrations();
   } catch (err) {
@@ -55,6 +49,12 @@ async function startServer() {
     if (config.nodeEnv === 'production' && !config.mockModeAllowed) {
       process.exit(1);
     }
+  }
+
+  // 3. Start background workers for standalone process mode
+  if (appRole === 'all' || appRole === 'worker') {
+    startNotificationWorker();
+    startPaymentReconciliationWorker();
   }
 
   // 4. Setup Telegram bot (only if role is 'all' or 'telegram-bot')

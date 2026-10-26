@@ -684,6 +684,7 @@ let reconciliationInterval: NodeJS.Timeout | null = null;
 export function startPaymentReconciliationWorker(intervalMs = 20000): void {
   if (reconciliationInterval) return;
   reconciliationInterval = setInterval(() => {
+    if (!isDbActive()) return;
     reconcilePendingPayments().catch((err) => logger.error('Payment reconciliation error:', err));
   }, intervalMs);
 }

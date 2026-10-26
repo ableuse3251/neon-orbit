@@ -13,7 +13,8 @@ var botToken = rawBotToken.trim().replace(/^["']|["']$/g, "");
 var jwtSecret = process.env.JWT_SECRET || (botToken ? `jwt_${botToken.slice(-12)}` : "default_jwt_secret_change_me");
 var webhookSecret = process.env.WEBHOOK_SECRET || (botToken ? `wh_${botToken.slice(-12)}` : "default_webhook_secret");
 var metricsSecret = process.env.METRICS_SECRET || (botToken ? `m_${botToken.slice(-12)}` : "default_metrics_secret");
-var databaseUrl = (process.env.DATABASE_URL || process.env.POSTGRES_URL || "").trim();
+var rawDatabaseUrl = (process.env.DATABASE_URL || process.env.POSTGRES_URL || "").trim();
+var databaseUrl = rawDatabaseUrl.startsWith("postgres://") || rawDatabaseUrl.startsWith("postgresql://") ? rawDatabaseUrl : "";
 function parseAllowedOrigins(input) {
   if (!input) return [];
   return input.split(",").map((s) => s.trim()).filter(Boolean);
@@ -509,9 +510,9 @@ if (config.databaseUrl) {
       ssl: sslConfig,
       max: poolMax,
       idleTimeoutMillis: 3e4,
-      connectionTimeoutMillis: 2e4
+      connectionTimeoutMillis: 5e3
     });
-    if (config.nodeEnv !== "test") {
+    if (config.nodeEnv === "production") {
       isDbConnected = true;
     }
     pool.on("error", (err) => {

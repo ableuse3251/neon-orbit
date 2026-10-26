@@ -53,10 +53,10 @@ if (config.databaseUrl) {
       ssl: sslConfig,
       max: poolMax,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 20000,
+      connectionTimeoutMillis: 5000,
     });
 
-    if (config.nodeEnv !== 'test') {
+    if (config.nodeEnv === 'production') {
       isDbConnected = true;
     }
 
