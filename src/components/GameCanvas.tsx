@@ -7,7 +7,6 @@ import {
   isForbiddenTarget,
   getComboMultiplier,
   getEntityCategory,
-  EntityCategory,
 } from '../shared/targetGenerator';
 import { particlePool, floatingTextPool } from '../utils/pool';
 import { performanceManager } from '../utils/performance';
@@ -62,6 +61,24 @@ interface EngineParticle {
   color: string;
   life: number;
   maxLife: number;
+}
+
+interface ShockwaveRing {
+  x: number;
+  y: number;
+  radius: number;
+  maxRadius: number;
+  color: string;
+  alpha: number;
+}
+
+interface FrostParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  alpha: number;
 }
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({
@@ -120,13 +137,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     floatingTexts: [] as FloatingText[],
     clickLogs: [] as ClickLog[],
     powerupsUsed: [] as PowerupType[],
-    activePowerups: {
-      freeze: 0,
-      shield: 0,
-    },
     screenShake: 0,
     gridOffset: 0,
     lastFrameTime: performance.now(),
+
+    // Powerup Active State & Particle Systems
+    shieldTimeLeft: 0,
+    freezeTimeLeft: 0,
+    speedBurstTimeLeft: 0,
+    magnetTimeLeft: 0,
+    shieldAngle: 0,
+    shockwaves: [] as ShockwaveRing[],
+    frostMist: [] as FrostParticle[],
 
     // 3D Forward Flight & Spaceship State
     warpStars: [] as WarpStar[],
@@ -169,22 +191,113 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     gameStateRef.current.nebulaClouds = nebulas;
   }, []);
 
+  // Trigger Tactile Powerup Effects & Particle Systems
+  const triggerPowerupEffect = useCallback((type: PowerupType, customX?: number, customY?: number) => {
+    const state = gameStateRef.current;
+    const canvas = canvasRef.current;
+    const width = canvas ? canvas.width / (Math.min(window.devicePixelRatio || 1, 2)) : window.innerWidth;
+    const height = canvas ? canvas.height / (Math.min(window.devicePixelRatio || 1, 2)) : window.innerHeight;
+
+    const px = customX ?? width / 2;
+    const py = customY ?? height / 2;
+
+    if (!state.powerupsUsed.includes(type)) {
+      state.powerupsUsed.push(type);
+    }
+
+    if (type === 'supernova') {
+      // 1. SUPERNOVA MEGA-BOMB POWERUP
+      state.screenShake = 32;
+      triggerHaptic('impact');
+
+      // Expand Mega-Bomb Shockwave
+      state.shockwaves.push({
+        x: px,
+        y: py,
+        radius: 10,
+        maxRadius: width * 0.95,
+        color: '#FFB703',
+        alpha: 1.0,
+      });
+
+      // Clear active hazard mines on screen and convert into score bursts
+      for (let i = state.targets.length - 1; i >= 0; i--) {
+        if (isForbiddenTarget(state.targets[i].type)) {
+          const t = state.targets.splice(i, 1)[0];
+          const tx = (t.x / 100) * width;
+          const ty = (t.y / 100) * height;
+          state.score += 150;
+          state.floatingTexts.push(
+            floatingTextPool.acquire(`fl_bomb_${Date.now()}`, `💥 CLEARED! +150`, tx, ty, '#00F5D4', 1.4)
+          );
+        }
+      }
+
+      state.floatingTexts.push(
+        floatingTextPool.acquire(`fl_supernova_${Date.now()}`, `💥 SUPERNOVA MEGA-BOMB!`, px, py - 40, '#FFB703', 1.8)
+      );
+    } else if (type === 'freeze') {
+      // 2. STASIS FROST FREEZE POWERUP
+      state.freezeTimeLeft = 6.0;
+      triggerHaptic('medium');
+
+      // Spawn Frost Mist Particles
+      const frostParticles: FrostParticle[] = [];
+      for (let i = 0; i < 35; i++) {
+        frostParticles.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 30,
+          vy: 20 + Math.random() * 40,
+          size: Math.random() * 4 + 2,
+          alpha: Math.random() * 0.7 + 0.3,
+        });
+      }
+      state.frostMist = frostParticles;
+
+      state.floatingTexts.push(
+        floatingTextPool.acquire(`fl_freeze_${Date.now()}`, `❄️ STASIS FROST (SLOW-MO)`, px, py - 30, '#00F5D4', 1.6)
+      );
+    } else if (type === 'shield') {
+      // 3. PLASMA ENERGY SHIELD POWERUP
+      state.shieldTimeLeft = 7.0;
+      triggerHaptic('heavy');
+
+      state.floatingTexts.push(
+        floatingTextPool.acquire(`fl_shield_${Date.now()}`, `🛡️ PLASMA SHIELD ACTIVE`, px, py - 30, '#FFB703', 1.6)
+      );
+    } else if (type === 'slow_time') {
+      // 4. CHRONOS SPEED-BURST POWERUP
+      state.speedBurstTimeLeft = 5.0;
+      triggerHaptic('medium');
+
+      state.floatingTexts.push(
+        floatingTextPool.acquire(`fl_speed_${Date.now()}`, `⚡ CHRONOS SPEED-BURST`, px, py - 30, '#8338EC', 1.6)
+      );
+    } else if (type === 'magnet_field') {
+      // 5. GRAVITATIONAL MAGNET FIELD POWERUP
+      state.magnetTimeLeft = 6.0;
+      triggerHaptic('medium');
+
+      state.floatingTexts.push(
+        floatingTextPool.acquire(`fl_magnet_${Date.now()}`, `🧲 GRAV-MAGNET FIELD`, px, py - 30, '#3A86FF', 1.6)
+      );
+    }
+  }, []);
+
   // Reset State and Initialize Scheduled Targets on Round Start
   const startRound = useCallback(() => {
     const now = performance.now();
 
-    // Recycle active particles & floating texts back to pool before starting
     const state = gameStateRef.current;
     state.particles.forEach((p) => particlePool.release(p));
     state.floatingTexts.forEach((ft) => floatingTextPool.release(ft));
 
     init3DSpaceEnvironment();
 
-    // Resolve authoritative seed for simulation
     const effectiveSeed = (seed || dailySeed || (isDemo ? `demo_norm_${Date.now()}_${Math.random().toString(36).substring(2, 9)}` : `norm_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`)).trim();
     effectiveSeedRef.current = effectiveSeed;
 
-    // Generate deterministic target schedule matching server model
     const targetsList = generateRoundTargets(effectiveSeed, gameMode);
     scheduledTargetsRef.current = targetsList;
     nextTargetIndexRef.current = 0;
@@ -214,10 +327,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       floatingTexts: [],
       clickLogs: [],
       powerupsUsed: [],
-      activePowerups: {
-        freeze: 0,
-        shield: 0,
-      },
+      shieldTimeLeft: 0,
+      freezeTimeLeft: 0,
+      speedBurstTimeLeft: 0,
+      magnetTimeLeft: 0,
+      shieldAngle: 0,
+      shockwaves: [],
+      frostMist: [],
       screenShake: 0,
       gridOffset: 0,
       lastFrameTime: now,
@@ -288,10 +404,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const state = gameStateRef.current;
       state.totalTaps++;
 
-      // Sway ship toward tap location
       state.targetShipSwayX = (touchX - cssWidth / 2) * 0.35;
-
-      // Laser flash visual effect
       state.laserFlashes.push({ x: touchX, y: touchY, alpha: 1.0 });
 
       const nowOffset = performance.now() - state.roundStartTime;
@@ -299,7 +412,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const tapYPct = Number(((touchY / cssHeight) * 100).toFixed(1));
       let hitFound = false;
 
-      // Check hit against targets in reverse render order (top-most first)
       for (let i = state.targets.length - 1; i >= 0; i--) {
         const target = state.targets[i];
         const targetPxX = (target.x / 100) * cssWidth;
@@ -309,20 +421,31 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         const dy = touchY - targetPxY;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Generous touch hit radius for mobile/touch screens
         const hitRadius = Math.max(target.radius + 35, 48);
 
         if (dist <= hitRadius) {
           hitFound = true;
 
-          // 1. HAZARD CATEGORY (Mines, Black Holes, Decoy Satellites, EMP Pulses)
+          // 1. HAZARD CATEGORY TARGETS
           if (isForbiddenTarget(target.type)) {
             state.targets.splice(i, 1);
             state.minesHit++;
+
+            // Check if Shield powerup is active to absorb hazard!
+            if (state.shieldTimeLeft > 0) {
+              audioManager.playShield();
+              triggerHaptic('heavy');
+              createExplosion(targetPxX, targetPxY, '#00F5D4', 24);
+              state.floatingTexts.push(
+                floatingTextPool.acquire(`fl_deflect_${Date.now()}`, `🛡️ SHIELD ABSORBED HAZARD!`, targetPxX, targetPxY, '#00F5D4', 1.5)
+              );
+              break;
+            }
+
             state.combo = 0;
             state.multiplier = 1;
 
-            // TIME PENALTY: -3 SECONDS & -250 SCORE PENALTY
+            // HAZARD PENALTY: -3s TIME & -250 SCORE PENALTY
             state.roundStartTime -= 3000;
             state.score = Math.max(0, state.score - 250);
 
@@ -391,7 +514,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               });
               break;
             } else {
-              // Final blow on Boss
+              // Final blow on Boss -> Triggers Mega-Bomb Supernova Explosion!
               state.targets.splice(i, 1);
               state.combo++;
               if (state.combo > state.maxCombo) state.maxCombo = state.combo;
@@ -402,18 +525,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               createExplosion(targetPxX, targetPxY, target.color, 32);
               audioManager.playBeacon();
 
-              triggerHaptic('impact');
+              // Trigger Supernova Mega-Bomb
+              triggerPowerupEffect('supernova', targetPxX, targetPxY);
 
-              state.floatingTexts.push(
-                floatingTextPool.acquire(
-                  `fl_${Date.now()}_${Math.random()}`,
-                  `👑 BOSS DEFEATED! +${pointsGained}`,
-                  targetPxX,
-                  targetPxY,
-                  '#FB8500',
-                  1.8
-                )
-              );
               state.clickLogs.push({
                 timestampMs: Math.round(nowOffset),
                 xPct: tapXPct,
@@ -428,7 +542,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             }
           }
 
-          // 3. COLLECTIBLE & NEUTRAL TARGETS
+          // 3. COLLECTIBLE & SPECIAL POWERUP TARGETS
           state.targets.splice(i, 1);
           state.hits++;
           state.combo++;
@@ -437,6 +551,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           }
 
           state.multiplier = getComboMultiplier(state.combo);
+
+          // Activate specific powerups on special target hits
+          if (target.type === 'magnet') {
+            triggerPowerupEffect('magnet_field', targetPxX, targetPxY);
+          } else if (target.type === 'comet') {
+            triggerPowerupEffect('slow_time', targetPxX, targetPxY);
+          } else if (target.type === 'golden_beacon' && Math.random() < 0.35) {
+            triggerPowerupEffect('freeze', targetPxX, targetPxY);
+          } else if (target.type === 'double_beacon' && Math.random() < 0.35) {
+            triggerPowerupEffect('shield', targetPxX, targetPxY);
+          }
 
           const bonusMultiplier = target.type === 'double_beacon' ? 2 : 1;
           const pointsGained = Math.round(target.points * state.multiplier * bonusMultiplier);
@@ -511,14 +636,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         triggerHaptic('selection');
 
         state.floatingTexts.push(
-          floatingTextPool.acquire(
-            `fl_miss_${Date.now()}`,
-            `MISS (-25)`,
-            touchX,
-            touchY,
-            '#FFB703',
-            1.1
-          )
+          floatingTextPool.acquire(`fl_miss_${Date.now()}`, `MISS (-25)`, touchX, touchY, '#FFB703', 1.1)
         );
 
         state.clickLogs.push({
@@ -535,9 +653,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         trackEvent('first_tap', { latencyMs: Math.round(nowOffset) });
       }
 
-      onScoreUpdate(state.score, state.combo, state.multiplier, []);
+      // Update active powerups list for HUD telemetry
+      const activeList: PowerupType[] = [];
+      if (state.freezeTimeLeft > 0) activeList.push('freeze');
+      if (state.shieldTimeLeft > 0) activeList.push('shield');
+      if (state.speedBurstTimeLeft > 0) activeList.push('slow_time');
+      if (state.magnetTimeLeft > 0) activeList.push('magnet_field');
+
+      onScoreUpdate(state.score, state.combo, state.multiplier, activeList);
     },
-    [isPlaying, isPaused, createExplosion, onScoreUpdate, reduceMotion]
+    [isPlaying, isPaused, createExplosion, triggerPowerupEffect, onScoreUpdate, reduceMotion]
   );
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
@@ -564,7 +689,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     };
   }, [isPlaying, isPaused, onPauseChange]);
 
-  // Main Render Loop: Forward Hyper-Speed Warp Flight & Categorized Physics Movement
+  // Main Render Loop: Forward Hyper-Speed Warp Flight, Powerup Particle Effects & Spaceship
   useEffect(() => {
     let animationFrameId: number;
     const canvas = canvasRef.current;
@@ -601,6 +726,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const deltaTime = Math.min(deltaMs / 1000, 0.1);
       state.lastFrameTime = currentTime;
 
+      // Update Powerup Durations
+      if (state.freezeTimeLeft > 0) state.freezeTimeLeft = Math.max(0, state.freezeTimeLeft - deltaTime);
+      if (state.shieldTimeLeft > 0) state.shieldTimeLeft = Math.max(0, state.shieldTimeLeft - deltaTime);
+      if (state.speedBurstTimeLeft > 0) state.speedBurstTimeLeft = Math.max(0, state.speedBurstTimeLeft - deltaTime);
+      if (state.magnetTimeLeft > 0) state.magnetTimeLeft = Math.max(0, state.magnetTimeLeft - deltaTime);
+
       performanceManager.registerFrame(deltaMs);
       const perfConfig = performanceManager.getConfig();
 
@@ -609,6 +740,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const height = canvas.height / dpr;
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const shipX = width * 0.5 + state.shipSwayX;
+      const shipY = height * 0.83 + Math.sin(currentTime * 0.003) * 4;
 
       if (isPlaying && !isPaused) {
         const elapsedMs = currentTime - state.roundStartTime;
@@ -645,36 +779,49 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           nextTargetIndexRef.current++;
         }
 
+        // Freeze Slow-Motion Multiplier Factor
+        const speedScale = state.freezeTimeLeft > 0 ? 0.35 : 1.0;
+
         // CATEGORY-BASED MOVEMENT PATTERNS
         for (let i = state.targets.length - 1; i >= 0; i--) {
           const target = state.targets[i];
           const category = target.category ?? getEntityCategory(target.type);
 
-          target.rotation += target.vRot * deltaTime;
+          target.rotation += target.vRot * deltaTime * speedScale;
+
+          // Magnet Powerup Gravitational Pull Effect
+          if (state.magnetTimeLeft > 0 && category !== 'hazard') {
+            const targetPxX = (target.x / 100) * width;
+            const targetPxY = (target.y / 100) * height;
+            const mdx = shipX - targetPxX;
+            const mdy = shipY - targetPxY;
+            const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
+            if (mdist > 10 && mdist < 450) {
+              target.vx += (mdx / mdist) * 22.0 * deltaTime;
+              target.vy += (mdy / mdist) * 22.0 * deltaTime;
+            }
+          }
 
           if (category === 'collectible') {
-            // Pattern 1: Curved Orbital Wave Drift (Sine / Cosine Wave Float)
             const waveX = Math.cos(currentTime * 0.003 + target.pulsePhase) * 14.0;
             const waveY = Math.sin(currentTime * 0.003 + target.pulsePhase) * 12.0;
-            target.x += (target.vx + waveX) * deltaTime;
-            target.y += (target.vy + waveY) * deltaTime;
+            target.x += (target.vx + waveX) * deltaTime * speedScale;
+            target.y += (target.vy + waveY) * deltaTime * speedScale;
           } else if (category === 'hazard') {
-            // Pattern 2: Erratic Zig-Zag Impulse Shift
             if (Math.random() < 0.03) {
               target.vx += (Math.random() - 0.5) * 14.0;
               target.vy += (Math.random() - 0.5) * 14.0;
             }
             target.vx *= 0.992;
             target.vy *= 0.992;
-            target.x += target.vx * deltaTime;
-            target.y += target.vy * deltaTime;
+            target.x += target.vx * deltaTime * speedScale;
+            target.y += target.vy * deltaTime * speedScale;
           } else {
-            // Pattern 3: Neutral Smooth Inertia Drift
-            target.x += target.vx * deltaTime;
-            target.y += target.vy * deltaTime;
+            target.x += target.vx * deltaTime * speedScale;
+            target.y += target.vy * deltaTime * speedScale;
           }
 
-          // Elastic Edge Bounce Physics
+          // Elastic Edge Bounce
           const minX = 10, maxX = 90, minY = 14, maxY = 78;
           if (target.x < minX) {
             target.x = minX;
@@ -756,7 +903,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const vanishingX = width * 0.5;
       const vanishingY = height * 0.38;
 
-      const warpSpeed = (800 + Math.min(state.combo, 25) * 120) * (reduceMotion ? 0.4 : 1.0);
+      const warpSpeed = (800 + Math.min(state.combo, 25) * 120) * (reduceMotion ? 0.4 : 1.0) * (state.speedBurstTimeLeft > 0 ? 1.8 : 1.0);
 
       // 1. Draw Deep Space Galactic Nebula Clouds
       for (let i = 0; i < state.nebulaClouds.length; i++) {
@@ -788,7 +935,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.globalAlpha = 1.0;
 
       // 2. 3D Perspective Hyper-Speed Warp Starfield
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = state.speedBurstTimeLeft > 0 ? 3.0 : 1.5;
       for (let i = 0; i < state.warpStars.length; i++) {
         const star = state.warpStars[i];
         star.z -= warpSpeed * deltaTime;
@@ -810,7 +957,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
         if (currX >= -50 && currX <= width + 50 && currY >= -50 && currY <= height + 50) {
           const alpha = Math.min(1, Math.max(0.1, (1000 - star.z) / 800));
-          ctx.strokeStyle = star.color;
+          ctx.strokeStyle = state.speedBurstTimeLeft > 0 ? '#00F5D4' : star.color;
           ctx.globalAlpha = alpha;
 
           ctx.beginPath();
@@ -820,6 +967,55 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
       ctx.globalAlpha = 1.0;
+
+      // RENDER SUPERNOVA MEGA-BOMB SHOCKWAVES
+      for (let i = state.shockwaves.length - 1; i >= 0; i--) {
+        const ring = state.shockwaves[i];
+        ring.radius += deltaTime * 1200;
+        ring.alpha = Math.max(0, 1 - ring.radius / ring.maxRadius);
+
+        ctx.strokeStyle = ring.color;
+        ctx.lineWidth = 6.0;
+        ctx.globalAlpha = ring.alpha;
+
+        ctx.beginPath();
+        ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        if (ring.radius >= ring.maxRadius) {
+          state.shockwaves.splice(i, 1);
+        }
+      }
+      ctx.globalAlpha = 1.0;
+
+      // RENDER STASIS FROST MIST PARTICLES
+      if (state.freezeTimeLeft > 0) {
+        ctx.fillStyle = '#80FFEA';
+        for (let i = 0; i < state.frostMist.length; i++) {
+          const fm = state.frostMist[i];
+          fm.x += fm.vx * deltaTime;
+          fm.y += fm.vy * deltaTime;
+          if (fm.y > height) fm.y = 0;
+          if (fm.x < 0) fm.x = width;
+          if (fm.x > width) fm.x = 0;
+
+          ctx.globalAlpha = fm.alpha * (state.freezeTimeLeft / 6.0);
+          ctx.fillRect(fm.x, fm.y, fm.size, fm.size);
+        }
+        ctx.globalAlpha = 1.0;
+      }
+
+      // RENDER GRAVITATIONAL MAGNET FIELD PULSE RINGS
+      if (state.magnetTimeLeft > 0) {
+        const pulseR = (currentTime * 0.2) % 180;
+        ctx.strokeStyle = '#3A86FF';
+        ctx.lineWidth = 2.0;
+        ctx.globalAlpha = 0.5 * (state.magnetTimeLeft / 6.0);
+        ctx.beginPath();
+        ctx.arc(shipX, shipY, pulseR, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+      }
 
       // 3. RENDER ACTIVE TARGET OBJECTS WITH DISTINCT CATEGORY VISUALS
       const elapsedMs = currentTime - state.roundStartTime;
@@ -838,12 +1034,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.rotate(target.rotation);
         ctx.scale(targetScale, targetScale);
 
-        // CATEGORY VISUAL ASSET RENDERING
         if (category === 'collectible') {
-          // --- COLLECTIBLE CATEGORY: Glowing Neon Crystals & Beacons ---
           const pulse = Math.sin(currentTime * 0.01 + target.pulsePhase) * 4;
 
-          // Outer glowing halo
           ctx.fillStyle = target.color;
           if (perfConfig.enableGlowBlur) {
             ctx.shadowColor = target.color;
@@ -855,7 +1048,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ctx.fill();
           ctx.shadowBlur = 0;
 
-          // Inner rotating crystal starburst
           ctx.fillStyle = '#FFFFFF';
           ctx.beginPath();
           ctx.moveTo(0, -target.radius * 0.7);
@@ -871,7 +1063,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ctx.arc(0, 0, target.radius * 1.25, 0, Math.PI * 2);
           ctx.stroke();
         } else if (category === 'hazard') {
-          // --- HAZARD CATEGORY: Spiked Crimson Mines, Black Holes & Decoys ---
           const pulse = Math.sin(currentTime * 0.015) * 6;
 
           ctx.fillStyle = target.color;
@@ -899,7 +1090,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             ctx.fillRect(-34, -6, 14, 12);
             ctx.fillRect(20, -6, 14, 12);
           } else {
-            // Spiked Mine or EMP Pulse
             ctx.beginPath();
             const spikes = 8;
             for (let s = 0; s < spikes * 2; s++) {
@@ -915,14 +1105,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             ctx.stroke();
           }
 
-          // Flashing Crimson Hazard Pulse Ring
           ctx.strokeStyle = '#FF0054';
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.arc(0, 0, target.radius + 8 + pulse, 0, Math.PI * 2);
           ctx.stroke();
         } else {
-          // --- NEUTRAL CATEGORY: Cratered Asteroids & Boss Meteors ---
           if (target.type === 'boss_meteor') {
             ctx.fillStyle = '#FB8500';
             if (perfConfig.enableGlowBlur) {
@@ -938,7 +1126,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             ctx.lineWidth = 3;
             ctx.stroke();
 
-            // HP Bar
             const maxHp = target.maxHp || 3;
             const currentHp = target.hp;
             const pipWidth = 8;
@@ -948,7 +1135,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               ctx.fillRect(startX + h * (pipWidth + 3), -target.radius - 12, pipWidth, 4);
             }
           } else {
-            // Faceted Meteorite Asteroid with Craters
             ctx.fillStyle = target.color || '#9D4EDD';
             ctx.strokeStyle = '#222222';
             ctx.lineWidth = 2;
@@ -967,7 +1153,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             ctx.fill();
             ctx.stroke();
 
-            // Internal Crater Details
             ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
             ctx.beginPath();
             ctx.arc(-target.radius * 0.3, -target.radius * 0.2, target.radius * 0.25, 0, Math.PI * 2);
@@ -992,36 +1177,30 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.lineWidth = 2.5;
         ctx.globalAlpha = lf.alpha;
 
-        const currentShipX = width * 0.5 + state.shipSwayX;
-        const currentShipY = height * 0.83;
-
         ctx.beginPath();
-        ctx.moveTo(currentShipX - 18, currentShipY - 10);
+        ctx.moveTo(shipX - 18, shipY - 10);
         ctx.lineTo(lf.x, lf.y);
-        ctx.moveTo(currentShipX + 18, currentShipY - 10);
+        ctx.moveTo(shipX + 18, shipY - 10);
         ctx.lineTo(lf.x, lf.y);
         ctx.stroke();
       }
       ctx.globalAlpha = 1.0;
 
-      // 5. RENDER EQUIPPED USER SPACESHIP WITH THRUSTERS & PARTICLES
+      // 5. RENDER EQUIPPED USER SPACESHIP WITH THRUSTERS, SPEED-BURST FLARE & PLASMA SHIELD
       state.shipSwayX += (state.targetShipSwayX - state.shipSwayX) * 0.1;
       state.shipBankAngle = (state.targetShipSwayX - state.shipSwayX) * 0.0008;
 
-      const shipX = width * 0.5 + state.shipSwayX;
-      const shipY = height * 0.83 + Math.sin(currentTime * 0.003) * 4;
-
       // Spawn Engine Exhaust Trail Particles
-      if (Math.random() < 0.8) {
+      if (Math.random() < 0.8 || state.speedBurstTimeLeft > 0) {
         state.engineParticles.push({
           x: shipX + (Math.random() - 0.5) * 16,
           y: shipY + 22,
           vx: (Math.random() - 0.5) * 30,
-          vy: 120 + Math.random() * 100,
-          size: Math.random() * 4 + 2,
-          color: Math.random() > 0.5 ? shipColor : shipAccentColor,
+          vy: (state.speedBurstTimeLeft > 0 ? 250 : 120) + Math.random() * 100,
+          size: (state.speedBurstTimeLeft > 0 ? 5 : 3) + Math.random() * 3,
+          color: state.speedBurstTimeLeft > 0 ? '#00F5D4' : Math.random() > 0.5 ? shipColor : shipAccentColor,
           life: 0,
-          maxLife: 0.35,
+          maxLife: state.speedBurstTimeLeft > 0 ? 0.5 : 0.35,
         });
       }
 
@@ -1048,15 +1227,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.rotate(state.shipBankAngle);
 
       const pulseEngine = Math.sin(currentTime * 0.02) * 4;
-      const thrusterGrad = ctx.createLinearGradient(0, 15, 0, 42 + pulseEngine);
+      const thrusterGrad = ctx.createLinearGradient(0, 15, 0, (state.speedBurstTimeLeft > 0 ? 60 : 42) + pulseEngine);
       thrusterGrad.addColorStop(0, '#FFFFFF');
-      thrusterGrad.addColorStop(0.3, shipColor);
+      thrusterGrad.addColorStop(0.3, state.speedBurstTimeLeft > 0 ? '#00F5D4' : shipColor);
       thrusterGrad.addColorStop(1, 'transparent');
 
       ctx.fillStyle = thrusterGrad;
       ctx.beginPath();
       ctx.moveTo(-10, 18);
-      ctx.lineTo(0, 42 + pulseEngine);
+      ctx.lineTo(0, (state.speedBurstTimeLeft > 0 ? 60 : 42) + pulseEngine);
       ctx.lineTo(10, 18);
       ctx.closePath();
       ctx.fill();
@@ -1150,6 +1329,30 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.arc(-22, 12, 2.5, 0, Math.PI * 2);
       ctx.arc(22, 12, 2.5, 0, Math.PI * 2);
       ctx.fill();
+
+      // RENDER ROTATING 3D PLASMA SHIELD BUBBLE
+      if (state.shieldTimeLeft > 0) {
+        state.shieldAngle += deltaTime * 3.0;
+        ctx.rotate(state.shieldAngle);
+        ctx.strokeStyle = '#00F5D4';
+        ctx.lineWidth = 3.0;
+        ctx.shadowColor = '#00F5D4';
+        ctx.shadowBlur = 12;
+
+        ctx.beginPath();
+        const hexSides = 6;
+        const shieldR = 46;
+        for (let h = 0; h < hexSides; h++) {
+          const ha = (Math.PI * 2 * h) / hexSides;
+          const hx = Math.cos(ha) * shieldR;
+          const hy = Math.sin(ha) * shieldR;
+          if (h === 0) ctx.moveTo(hx, hy);
+          else ctx.lineTo(hx, hy);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
 
       ctx.restore();
 
