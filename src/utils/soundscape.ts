@@ -231,214 +231,35 @@ export class MenuSoundscapeEngine {
     }
   }
 
+  private onStartMusic?: (trackIndex?: number) => void;
+
+  public setMusicCallback(cb: (trackIndex?: number) => void) {
+    this.onStartMusic = cb;
+  }
+
   /**
-   * Starts procedural synthwave ambient soundscape in the background.
+   * Starts background music playback using royalty-free Pixabay / BreakingCopyright tracks.
+   * Procedural background drones and ambient noise oscillators have been disabled.
    */
   public startMenuAmbient(scene: MenuScene = 'orbit') {
     if (!this.musicEnabled) return;
-    const ctx = this.initCtx();
-    if (!ctx) return;
-
     this.currentScene = scene;
-    if (this.isAmbientPlaying) {
-      this.setMenuScene(scene);
-      return;
-    }
-
-    const harmony = SCENE_HARMONIES[scene] || SCENE_HARMONIES.orbit;
-    const now = ctx.currentTime;
-
-    try {
-      // 1. Master Ambient Gain with smooth fade in
-      const masterGain = ctx.createGain();
-      const targetGain = this.volumeMusic * 0.12;
-      masterGain.gain.setValueAtTime(0.0001, now);
-      masterGain.gain.exponentialRampToValueAtTime(Math.max(0.001, targetGain), now + 1.2);
-      masterGain.connect(ctx.destination);
-      this.masterAmbientGain = masterGain;
-
-      // 2. Resonant 24dB Analog Lowpass Filter
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(harmony.filterCutoff, now);
-      filter.Q.setValueAtTime(harmony.resonance, now);
-      filter.connect(masterGain);
-      this.mainFilter = filter;
-
-      // 3. Stereo Space Delay for lush retro warmth
-      const delay = ctx.createDelay();
-      delay.delayTime.setValueAtTime(0.32, now);
-      const feedback = ctx.createGain();
-      feedback.gain.setValueAtTime(0.28, now);
-
-      delay.connect(feedback);
-      feedback.connect(delay);
-      delay.connect(masterGain);
-
-      this.delayNode = delay;
-      this.delayFeedback = feedback;
-
-      // 4. Subtle Analog Filter LFO (0.09Hz slow breathing pulse)
-      const lfo = ctx.createOscillator();
-      const lfoGain = ctx.createGain();
-      lfo.type = 'sine';
-      lfo.frequency.setValueAtTime(0.09, now);
-      lfoGain.gain.setValueAtTime(85, now); // Sweeps cutoff +/- 85 Hz
-      lfo.connect(lfoGain);
-      lfoGain.connect(filter.frequency);
-      lfo.start(now);
-      this.lfoOsc = lfo;
-      this.lfoGain = lfoGain;
-
-      // 5. Dual Detuned Sawtooth/Triangle Oscillators (Juno / Oberheim style)
-      const oscA = ctx.createOscillator();
-      const oscB = ctx.createOscillator();
-      oscA.type = 'sawtooth';
-      oscB.type = 'triangle';
-
-      oscA.frequency.setValueAtTime(harmony.rootFreq, now);
-      oscA.detune.setValueAtTime(5, now); // +5 cents detune
-
-      oscB.frequency.setValueAtTime(harmony.padFreqs[1] || harmony.rootFreq * 1.5, now);
-      oscB.detune.setValueAtTime(-5, now); // -5 cents detune
-
-      const padGain = ctx.createGain();
-      padGain.gain.setValueAtTime(0.4, now);
-
-      oscA.connect(padGain);
-      oscB.connect(padGain);
-      padGain.connect(filter);
-      padGain.connect(delay);
-
-      oscA.start(now);
-      oscB.start(now);
-      this.droneOscA = oscA;
-      this.droneOscB = oscB;
-
-      // 6. Sub-bass Oscillator for deep cosmic weight
-      const sub = ctx.createOscillator();
-      sub.type = 'sine';
-      sub.frequency.setValueAtTime(harmony.subFreq, now);
-      const subGain = ctx.createGain();
-      subGain.gain.setValueAtTime(0.35, now);
-      sub.connect(subGain);
-      subGain.connect(masterGain);
-      sub.start(now);
-      this.subOsc = sub;
-
-      this.isAmbientPlaying = true;
-
-      // 7. Start generative celestial shimmer drops
-      this.startGenerativeShimmer();
-    } catch (e) {
-      console.warn('Failed to start ambient synth soundscape:', e);
+    this.isAmbientPlaying = true;
+    if (this.onStartMusic) {
+      this.onStartMusic(0);
     }
   }
 
-  /**
-   * Smoothly morphs the ambient soundscape to a new menu scene/modal mood.
-   */
   public setMenuScene(scene: MenuScene | string) {
     this.currentScene = scene as MenuScene;
-    if (!this.isAmbientPlaying || !this.ctx) return;
-
-    const harmony = SCENE_HARMONIES[scene] || SCENE_HARMONIES.orbit;
-    const now = this.ctx.currentTime;
-    const glideTime = 0.75; // Smooth analog portamento
-
-    try {
-      // Glide drone pitch
-      if (this.droneOscA) {
-        this.droneOscA.frequency.cancelScheduledValues(now);
-        this.droneOscA.frequency.linearRampToValueAtTime(harmony.rootFreq, now + glideTime);
-      }
-      if (this.droneOscB) {
-        this.droneOscB.frequency.cancelScheduledValues(now);
-        const secondFreq = harmony.padFreqs[1] || harmony.rootFreq * 1.5;
-        this.droneOscB.frequency.linearRampToValueAtTime(secondFreq, now + glideTime);
-      }
-      if (this.subOsc) {
-        this.subOsc.frequency.cancelScheduledValues(now);
-        this.subOsc.frequency.linearRampToValueAtTime(harmony.subFreq, now + glideTime);
-      }
-      // Morph filter cutoff & resonance
-      if (this.mainFilter) {
-        this.mainFilter.frequency.cancelScheduledValues(now);
-        this.mainFilter.frequency.linearRampToValueAtTime(harmony.filterCutoff, now + glideTime);
-        this.mainFilter.Q.linearRampToValueAtTime(harmony.resonance, now + glideTime);
-      }
-    } catch (e) {
-      console.warn('Error shifting menu soundscape harmony:', e);
-    }
   }
 
-  /**
-   * Plays soft periodic generative synthwave chimes matching the active scene's harmonic scale.
-   */
   private startGenerativeShimmer() {
-    if (this.shimmerTimer !== null) {
-      clearTimeout(this.shimmerTimer);
-      this.shimmerTimer = null;
-    }
-
-    const scheduleNext = () => {
-      if (!this.isAmbientPlaying || !this.ctx) return;
-
-      const harmony = SCENE_HARMONIES[this.currentScene] || SCENE_HARMONIES.orbit;
-      const notes = harmony.scaleNotes;
-      const noteFreq = notes[this.shimmerIndex % notes.length];
-      this.shimmerIndex++;
-
-      this.playAtmosphericDrop(noteFreq);
-
-      // Randomised ambient intervals (2.4s to 4.2s)
-      const nextDelay = 2400 + Math.random() * 1800;
-      this.shimmerTimer = window.setTimeout(scheduleNext, nextDelay);
-    };
-
-    this.shimmerTimer = window.setTimeout(scheduleNext, 2000);
+    // Disabled: Procedural generative ambient drops removed
   }
 
-  /**
-   * Plays a single atmospheric bell/pad droplet through the delay network.
-   */
-  private playAtmosphericDrop(freq: number) {
-    if (!this.ctx || !this.musicEnabled) return;
-    const now = this.ctx.currentTime;
-
-    try {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      const filter = this.ctx.createBiquadFilter();
-
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, now);
-
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(freq * 1.8, now);
-      filter.frequency.exponentialRampToValueAtTime(Math.max(100, freq * 0.4), now + 1.4);
-
-      const amp = 0.04 * this.volumeMusic;
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(amp, now + 0.08); // Soft attack
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.6); // Long cosmic tail
-
-      osc.connect(filter);
-      filter.connect(gain);
-
-      if (this.delayNode) {
-        gain.connect(this.delayNode);
-      } else if (this.masterAmbientGain) {
-        gain.connect(this.masterAmbientGain);
-      } else {
-        gain.connect(this.ctx.destination);
-      }
-
-      osc.start(now);
-      osc.stop(now + 1.6);
-    } catch {
-      // Ignored
-    }
+  private playAtmosphericDrop(_freq: number) {
+    // Disabled: Procedural generative ambient drops removed
   }
 
   /**

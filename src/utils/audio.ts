@@ -8,6 +8,55 @@ import { soundscapeManager, MenuScene, NavSoundAction } from './soundscape';
 export { soundscapeManager };
 export type { MenuScene, NavSoundAction };
 
+export interface SynthwaveTrackInfo {
+  id: number;
+  title: string;
+  artist: string;
+  source: string;
+  url: string;
+  bpm: number;
+  genre: string;
+}
+
+export const SYNTHWAVE_TRACKS: SynthwaveTrackInfo[] = [
+  {
+    id: 0,
+    title: 'Galaxy',
+    artist: 'Synthwave Studio',
+    source: 'Cosmic Synthwave',
+    url: '/assets/aistudio/galaxy_0296b41f.mp3',
+    bpm: 120,
+    genre: 'Outrun Synthwave',
+  },
+  {
+    id: 1,
+    title: 'Surge Hope',
+    artist: 'SVRGE',
+    source: 'Cyber Drive',
+    url: '/assets/aistudio/svrge-hope_1bd443e1.mp3',
+    bpm: 128,
+    genre: 'Darksynth Cyber',
+  },
+  {
+    id: 2,
+    title: 'Road to Home',
+    artist: 'Retrowave Audio',
+    source: 'Outrun Retrowave',
+    url: '/assets/aistudio/road-to-home_a16e017d.mp3',
+    bpm: 110,
+    genre: '80s Retrowave',
+  },
+  {
+    id: 3,
+    title: 'Arcade Time',
+    artist: 'Arcade Synth',
+    source: 'Retro Arcade',
+    url: '/assets/aistudio/arcade-time_26f2834c.mp3',
+    bpm: 124,
+    genre: 'Arcade Synthpop',
+  },
+];
+
 class SoundEngine {
   private ctx: AudioContext | null = null;
   private soundEnabled: boolean = true;
@@ -18,9 +67,13 @@ class SoundEngine {
   private musicTimer: number | null = null;
   private noteIndex: number = 0;
   private currentLoopIndex: number = 0;
+  private currentTrackIndex: number = 0;
+  private htmlAudio: HTMLAudioElement | null = null;
 
   constructor() {
-    // Lazily initialize AudioContext on user interaction
+    soundscapeManager.setMusicCallback((trackIndex) => {
+      this.startSynthwaveLoop(trackIndex ?? 0);
+    });
   }
 
   private initCtx() {
@@ -41,6 +94,9 @@ class SoundEngine {
     this.soundEnabled = this.volumeFx > 0;
     this.musicEnabled = this.volumeMusic > 0;
     soundscapeManager.setVolumes(this.volumeFx, this.volumeMusic);
+    if (this.htmlAudio) {
+      this.htmlAudio.volume = Math.max(0, Math.min(1, this.volumeMusic * 0.7));
+    }
     if (!this.musicEnabled && this.isMusicPlaying) {
       this.stopMusic();
     }
@@ -84,241 +140,45 @@ class SoundEngine {
     osc.stop(this.ctx.currentTime + 0.08);
   }
 
-  // Target-specific chiptune sound effects
-  public playTargetSound(type: TargetType, combo: number = 1) {
-    switch (type) {
-      case 'golden_beacon':
-      case 'double_beacon':
-        this.playBeacon();
-        break;
-      case 'comet':
-        this.playComet();
-        break;
-      case 'mine':
-        this.playMine();
-        break;
-      case 'magnet':
-        this.playMagnet();
-        break;
-      case 'black_hole':
-        this.playBlackHole();
-        break;
-      case 'boss_meteor':
-        this.playBossHit();
-        break;
-      case 'asteroid':
-      default:
-        this.playTap(combo);
-        break;
-    }
+  // Target tap click sound effect
+  public playTargetSound(_type: TargetType, combo: number = 1) {
+    this.playTap(combo);
   }
 
   private playComet() {
-    if (!this.soundEnabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(800, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(1600, this.ctx.currentTime + 0.15);
-
-    const g = Math.min(0.2, 0.15 * this.volumeFx);
-    gain.gain.setValueAtTime(g, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.15);
+    this.playTap(2);
   }
 
   private playMagnet() {
-    if (!this.soundEnabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(600, this.ctx.currentTime + 0.12);
-
-    const g = Math.min(0.2, 0.15 * this.volumeFx);
-    gain.gain.setValueAtTime(g, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.12);
+    this.playTap(1);
   }
 
   private playBlackHole() {
-    if (!this.soundEnabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(120, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.25);
-
-    const g = Math.min(0.3, 0.2 * this.volumeFx);
-    gain.gain.setValueAtTime(g, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.25);
+    this.playTap(1);
   }
 
   private playBossHit() {
-    if (!this.soundEnabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(250, this.ctx.currentTime);
-    osc.frequency.setValueAtTime(450, this.ctx.currentTime + 0.05);
-
-    const g = Math.min(0.25, 0.18 * this.volumeFx);
-    gain.gain.setValueAtTime(g, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.12);
+    this.playTap(3);
   }
 
-  // Play Golden Beacon extra points chime
   public playBeacon() {
-    if (!this.soundEnabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 arpeggio
-    notes.forEach((freq, idx) => {
-      if (!this.ctx) return;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.04);
-
-      const g = Math.min(0.25, 0.18 * this.volumeFx);
-      gain.gain.setValueAtTime(g, this.ctx.currentTime + idx * 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.04 + 0.12);
-
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-
-      osc.start(this.ctx.currentTime + idx * 0.04);
-      osc.stop(this.ctx.currentTime + idx * 0.04 + 0.12);
-    });
+    this.playTap(2);
   }
 
-  // Play Mine explosion noise
   public playMine() {
-    if (!this.soundEnabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(180, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.3);
-
-    const g = Math.min(0.35, 0.25 * this.volumeFx);
-    gain.gain.setValueAtTime(g, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.3);
+    this.playTap(1);
   }
 
-  // Play Supernova wipeout sound
   public playSupernova() {
-    if (!this.soundEnabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(200, this.ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(1200, this.ctx.currentTime + 0.35);
-    osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.6);
-
-    const g = Math.min(0.3, 0.2 * this.volumeFx);
-    gain.gain.setValueAtTime(g, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.6);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.6);
+    this.playTap(3);
   }
 
-  // Play Time Freeze chime
   public playFreeze() {
-    if (!this.soundEnabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(400, this.ctx.currentTime + 0.4);
-
-    const g = Math.min(0.25, 0.18 * this.volumeFx);
-    gain.gain.setValueAtTime(g, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.4);
+    this.playTap(1);
   }
 
-  // Play Shield activate sound
   public playShield() {
-    if (!this.soundEnabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(900, this.ctx.currentTime + 0.25);
-
-    const g = Math.min(0.25, 0.18 * this.volumeFx);
-    gain.gain.setValueAtTime(g, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.25);
+    this.playTap(2);
   }
 
   public playCountdownBeep(isGo: boolean = false) {
@@ -375,17 +235,65 @@ class SoundEngine {
     [130.81, 164.81, 196.00, 246.94, 130.81, 196.00, 261.63, 246.94], // Loop 3: Supernova Groove (C major)
   ];
 
+  public getTracks(): SynthwaveTrackInfo[] {
+    return SYNTHWAVE_TRACKS;
+  }
+
+  public getCurrentTrack(): SynthwaveTrackInfo {
+    return SYNTHWAVE_TRACKS[this.currentTrackIndex] || SYNTHWAVE_TRACKS[0];
+  }
+
+  public selectTrack(trackIndex: number) {
+    const validIndex = Math.max(0, Math.min(trackIndex, SYNTHWAVE_TRACKS.length - 1));
+    this.currentTrackIndex = validIndex;
+    this.currentLoopIndex = validIndex;
+
+    if (this.isMusicPlaying) {
+      this.stopMusic();
+      this.startSynthwaveLoop(validIndex);
+    }
+  }
+
   public startSynthwaveLoop(loopIndex: number = 0) {
-    if (!this.musicEnabled || this.isMusicPlaying) return;
+    if (!this.musicEnabled) return;
+
+    soundscapeManager.stopMenuAmbient();
+
+    const validIndex = Math.max(0, Math.min(loopIndex, SYNTHWAVE_TRACKS.length - 1));
+    this.currentTrackIndex = validIndex;
+    this.currentLoopIndex = validIndex;
+    this.isMusicPlaying = true;
+
+    // 1. Attempt streaming royalty-free Pixabay / BreakingCopyright track via HTML5 Audio
+    const track = SYNTHWAVE_TRACKS[validIndex];
+    if (typeof window !== 'undefined' && track?.url) {
+      try {
+        if (!this.htmlAudio) {
+          this.htmlAudio = new Audio();
+          this.htmlAudio.loop = true;
+        }
+        this.htmlAudio.src = track.url;
+        this.htmlAudio.volume = Math.max(0, Math.min(1, this.volumeMusic * 0.7));
+        const playPromise = this.htmlAudio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            // Fallback to Web Audio synthesizer loop if audio playback is blocked or fails
+            this.playSynthesizedWebAudioLoop();
+          });
+        }
+      } catch {
+        this.playSynthesizedWebAudioLoop();
+      }
+    } else {
+      this.playSynthesizedWebAudioLoop();
+    }
+  }
+
+  private playSynthesizedWebAudioLoop() {
     this.initCtx();
     if (!this.ctx) return;
 
-    // Pause ambient menu soundscape while high-energy gameplay music is running
-    soundscapeManager.stopMenuAmbient();
-
-    this.currentLoopIndex = Math.max(0, Math.min(loopIndex, this.synthLoops.length - 1));
-    this.isMusicPlaying = true;
-    const synthNotes = this.synthLoops[this.currentLoopIndex];
+    const synthNotes = this.synthLoops[this.currentLoopIndex] || this.synthLoops[0];
     this.noteIndex = 0;
 
     const playNextNote = () => {
@@ -416,15 +324,22 @@ class SoundEngine {
   }
 
   public switchLoop(loopIndex: number) {
-    const next = Math.max(0, Math.min(loopIndex, this.synthLoops.length - 1));
-    if (next !== this.currentLoopIndex && this.isMusicPlaying) {
-      this.currentLoopIndex = next;
-      this.noteIndex = 0;
+    const next = Math.max(0, Math.min(loopIndex, SYNTHWAVE_TRACKS.length - 1));
+    if (next !== this.currentTrackIndex && this.isMusicPlaying) {
+      this.selectTrack(next);
     }
   }
 
   public stopMusic() {
     this.isMusicPlaying = false;
+
+    if (this.htmlAudio) {
+      try {
+        this.htmlAudio.pause();
+        this.htmlAudio.currentTime = 0;
+      } catch {}
+    }
+
     if (this.musicTimer !== null) {
       clearTimeout(this.musicTimer);
       this.musicTimer = null;

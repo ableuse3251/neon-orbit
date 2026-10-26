@@ -141,7 +141,7 @@ export function createApp() {
       }
       return `ip_${ipKeyGenerator(rawIp)}`;
     },
-    validate: { ip: false },
+    validate: false,
     message: { success: false, error: 'Too many requests.' },
     store: {
       init: () => {},

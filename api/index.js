@@ -4756,6 +4756,16 @@ var token = config.botToken || process.env.TELEGRAM_BOT_TOKEN || "";
 var bot = new Bot(token || "111111111:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 bot.catch((err) => {
   const ctx = err.ctx;
+  const rawErr = err?.error;
+  const errStr = String(rawErr?.message || rawErr || err);
+  if (errStr.includes("401") || errStr.includes("Unauthorized")) {
+    logger.warn("Telegram Bot update error: Token unauthorized (401). Stopping bot polling.");
+    try {
+      bot.stop();
+    } catch {
+    }
+    return;
+  }
   logger.warn(`Telegram Bot error during update ${ctx?.update?.update_id || "unknown"}:`, err.error);
 });
 var APP_URL = (config.appUrl && !config.appUrl.includes("ais-dev-") && !config.appUrl.includes("localhost") ? config.appUrl : "") || "https://neon-orbit-omega.vercel.app";
@@ -6970,7 +6980,7 @@ function createApp() {
       }
       return `ip_${ipKeyGenerator(rawIp)}`;
     },
-    validate: { ip: false },
+    validate: false,
     message: { success: false, error: "Too many requests." },
     store: {
       init: () => {

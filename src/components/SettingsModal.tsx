@@ -1,11 +1,12 @@
-import React from 'react';
-import { Volume2, Monitor, Globe, Bell, Scale, EyeOff, Sliders } from 'lucide-react';
+import React, { useState } from 'react';
+import { Volume2, Monitor, Globe, Bell, Scale, EyeOff, Sliders, Music, Disc3 } from 'lucide-react';
 import { PlayerProfile } from '../types/game';
 import { triggerHaptic } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
 import { api } from '../utils/api';
+import { audioManager } from '../utils/audio';
 import { PWAInstallButton } from './PWAInstallButton';
-import { KokonutModal, KokonutSwitch, KokonutButton, KokonutCard, KokonutProgress } from './ui/kokonut';
+import { KokonutModal, KokonutSwitch, KokonutButton, KokonutCard, KokonutBadge } from './ui/kokonut';
 
 interface SettingsModalProps {
   profile: PlayerProfile;
@@ -26,6 +27,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const t = getTranslation(profile.lang);
   const { settings, lang, notificationsEnabled } = profile;
+
+  const tracks = audioManager.getTracks();
+  const [currentTrack, setCurrentTrack] = useState(audioManager.getCurrentTrack());
+
+  const selectTrack = (id: number) => {
+    triggerHaptic('selection');
+    audioManager.selectTrack(id);
+    setCurrentTrack(audioManager.getCurrentTrack());
+  };
 
   const setFxVolume = (val: number) => {
     onUpdateSettings({ ...settings, volumeFx: val, soundFx: val > 0 });
@@ -117,6 +127,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
               className="accent-[#00f5d4] cursor-pointer h-2 bg-[#0d0622] rounded-lg"
             />
+          </div>
+
+          {/* Royalty-Free Synthwave Music Track Selector (Pixabay & BreakingCopyright) */}
+          <div className="flex flex-col gap-2 mt-1 pt-2 border-t border-[#00f5d4]/15">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-gray-300">
+              <span className="flex items-center gap-1.5 text-[#00f5d4] font-pixel text-[10px]">
+                <Music className="w-3.5 h-3.5 text-[#ff007f]" />
+                <span>{lang === 'ru' ? 'СИНТВЕЙВ ТРЕК' : 'SYNTHWAVE TRACK'}</span>
+              </span>
+              <span className="text-[9px] text-[#ff007f] font-mono-tech uppercase font-bold">
+                {currentTrack.source}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-1.5">
+              {tracks.map((tr) => (
+                <button
+                  key={tr.id}
+                  onClick={() => selectTrack(tr.id)}
+                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-left transition-all cursor-pointer ${
+                    currentTrack.id === tr.id
+                      ? 'bg-[#00f5d4]/15 border-[#00f5d4] text-white shadow-[0_0_12px_rgba(0,245,212,0.3)]'
+                      : 'bg-[#050212]/60 border-white/10 text-gray-400 hover:border-white/30 hover:text-gray-200'
+                  }`}
+                >
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-gray-100 flex items-center gap-1">
+                      {currentTrack.id === tr.id && <Disc3 className="w-3 h-3 text-[#00f5d4] animate-spin" />}
+                      <span>{tr.title}</span>
+                    </span>
+                    <span className="text-[9px] text-gray-400 font-mono-tech">{tr.genre} • {tr.bpm} BPM</span>
+                  </div>
+                  <KokonutBadge
+                    variant={tr.id % 2 === 0 ? 'cyan' : 'pink'}
+                    size="sm"
+                    className="text-[8px] py-0.5 px-1.5 font-pixel uppercase"
+                  >
+                    {tr.source}
+                  </KokonutBadge>
+                </button>
+              ))}
+            </div>
           </div>
         </KokonutCard>
 

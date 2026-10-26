@@ -17,11 +17,28 @@ import crypto from 'crypto';
 dotenv.config();
 
 const token = config.botToken || process.env.TELEGRAM_BOT_TOKEN || '';
+
+export function isPlaceholderToken(tok: string): boolean {
+  if (!tok || typeof tok !== 'string') return true;
+  const clean = tok.trim();
+  if (!clean || clean.length < 10) return true;
+  if (clean.startsWith('111111111:') || clean.startsWith('123456:') || clean.startsWith('000000000:')) return true;
+  if (clean.includes('YOUR_BOT_TOKEN') || clean.includes('AAAAAAA')) return true;
+  return false;
+}
+
 export const bot = new Bot(token || '111111111:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
 
 // Global error handler for grammY updates
 bot.catch((err) => {
   const ctx = err.ctx;
+  const rawErr = err?.error as any;
+  const errStr = String(rawErr?.message || rawErr || err);
+  if (errStr.includes('401') || errStr.includes('Unauthorized')) {
+    logger.warn('Telegram Bot update error: Token unauthorized (401). Stopping bot polling.');
+    try { bot.stop(); } catch {}
+    return;
+  }
   logger.warn(`Telegram Bot error during update ${ctx?.update?.update_id || 'unknown'}:`, err.error);
 });
 
@@ -662,45 +679,88 @@ bot.command('refund', async (ctx: Context) => {
   }
 });
 
+async function safeTelegramCall<T>(
+  actionName: string,
+  fn: () => Promise<T>,
+  retries = 2
+): Promise<{ success: boolean; data?: T; is401?: boolean; error?: any }> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const data = await fn();
+      return { success: true, data };
+    } catch (err: any) {
+      const errStr = String(err?.message || err);
+      const is401 = err?.error_code === 401 || errStr.includes('401') || errStr.includes('Unauthorized');
+      if (is401) {
+        return { success: false, is401: true, error: err };
+      }
+
+      const is429 = err?.error_code === 429 || errStr.includes('429') || errStr.includes('Too Many Requests');
+      if (is429 && attempt < retries) {
+        let retryAfterSec = 5;
+        if (err?.parameters?.retry_after && typeof err.parameters.retry_after === 'number') {
+          retryAfterSec = err.parameters.retry_after;
+        } else {
+          const match = errStr.match(/retry after (\d+)/i);
+          if (match) retryAfterSec = parseInt(match[1], 10);
+        }
+        const waitMs = Math.min(Math.max(retryAfterSec * 1000, 2000), 15000);
+        logger.info(`[Telegram API] Rate limited on ${actionName} (429). Waiting ${Math.round(waitMs / 1000)}s before retry ${attempt + 1}/${retries}...`);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        continue;
+      }
+
+      return { success: false, error: err };
+    }
+  }
+  return { success: false };
+}
+
 /**
  * Setup Telegram Bot inside Express app
  * Configures Telegram Commands, WebApp Menu Button, Descriptions, and launches active long-polling.
  */
 export async function setupTelegramBot(app: express.Application): Promise<void> {
-  if (!token || token.startsWith('111111111:')) {
-    logger.warn('TELEGRAM_BOT_TOKEN missing or placeholder. Bot startup skipped.');
-    return;
-  }
-
-  // 1. Verify token authorization before making API modification calls
-  try {
-    const me = await bot.api.getMe();
-    logger.info(`Telegram Bot verified: @${me.username} (ID: ${me.id})`);
-  } catch (err: any) {
-    const is401 = err?.error_code === 401 || (typeof err?.message === 'string' && err.message.includes('401'));
-    if (is401) {
-      logger.warn('TELEGRAM_BOT_TOKEN is invalid or unauthorized (401). Bot startup skipped.');
-      return;
-    }
-    logger.warn('Could not verify bot token with Telegram API, proceeding with caution:', err?.message || err);
-  }
-
-  // 2. Informational route for webhook status
+  // 1. Informational route for webhook status (always available)
   app.all('/telegram/webhook', (_req, res) => {
     res.json({ status: 'polling_mode', bot: BOT_USERNAME });
   });
 
-  // 3. Ensure Telegram delivers updates via getUpdates by clearing webhook
-  try {
-    await bot.api.deleteWebhook({ drop_pending_updates: false });
-    logger.info('Telegram webhook cleared for active long-polling mode.');
-  } catch (err: any) {
-    logger.info('deleteWebhook notice (non-fatal):', err?.message || err);
+  if (isPlaceholderToken(token)) {
+    logger.warn('TELEGRAM_BOT_TOKEN missing or placeholder. Bot startup skipped.');
+    return;
   }
 
-  // 3. Register Bot Commands in Telegram Menu
-  try {
-    await bot.api.setMyCommands([
+  // 2. Verify token authorization before proceeding
+  const getMeRes = await safeTelegramCall('getMe', () => bot.api.getMe(), 2);
+  if (getMeRes.is401) {
+    logger.warn('TELEGRAM_BOT_TOKEN is invalid or unauthorized (401). Bot startup skipped.');
+    return;
+  }
+  if (!getMeRes.success) {
+    logger.warn('Could not verify bot token with Telegram API (rate limited or connection error). Bot startup skipped.');
+    return;
+  }
+
+  const me = getMeRes.data!;
+  logger.info(`Telegram Bot verified: @${me.username} (ID: ${me.id})`);
+
+  const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  // 3. Ensure Telegram delivers updates via getUpdates by clearing webhook
+  await delay(300);
+  const delWh = await safeTelegramCall('deleteWebhook', () => bot.api.deleteWebhook({ drop_pending_updates: false }), 1);
+  if (delWh.is401) return;
+  if (delWh.success) {
+    logger.info('Telegram webhook cleared for active long-polling mode.');
+  } else {
+    logger.info('deleteWebhook notice (non-fatal):', delWh.error?.message || delWh.error);
+  }
+
+  // 4. Register Bot Commands in Telegram Menu
+  await delay(300);
+  const setCmds = await safeTelegramCall('setMyCommands', () =>
+    bot.api.setMyCommands([
       { command: 'start', description: '🎮 Запустить игру Neon Orbit' },
       { command: 'top', description: '🏆 Таблица лидеров' },
       { command: 'notifications', description: '🔔 Настройки уведомлений' },
@@ -708,35 +768,50 @@ export async function setupTelegramBot(app: express.Application): Promise<void> 
       { command: 'paysupport', description: '⭐ Поддержка Telegram Stars' },
       { command: 'privacy', description: '🔒 Политика конфиденциальности' },
       { command: 'delete_me', description: '🗑️ Удалить аккаунт (GDPR)' },
-    ]);
+    ]),
+    1
+  );
+  if (setCmds.is401) return;
+  if (setCmds.success) {
     logger.info('Telegram Bot commands registered.');
-  } catch (err: any) {
-    logger.info('setMyCommands notice (non-fatal):', err?.message || err);
+  } else {
+    logger.info('setMyCommands notice (non-fatal):', setCmds.error?.message || setCmds.error);
   }
 
-  // 4. Configure Chat Menu Button to launch the Neon Orbit Mini App
-  try {
-    await bot.api.setChatMenuButton({
+  // 5. Configure Chat Menu Button to launch the Neon Orbit Mini App
+  await delay(300);
+  const setMenu = await safeTelegramCall('setChatMenuButton', () =>
+    bot.api.setChatMenuButton({
       menu_button: {
         type: 'web_app',
         text: '🎮 Играть',
         web_app: { url: APP_URL },
       },
-    });
+    }),
+    1
+  );
+  if (setMenu.is401) return;
+  if (setMenu.success) {
     logger.info(`Telegram Bot Menu Button linked to WebApp URL: ${APP_URL}`);
-  } catch (err: any) {
-    logger.info('setChatMenuButton notice (non-fatal):', err?.message || err);
+  } else {
+    logger.info('setChatMenuButton notice (non-fatal):', setMenu.error?.message || setMenu.error);
   }
 
-  // 5. Configure Bot Descriptions
-  try {
+  // 6. Configure Bot Descriptions
+  await delay(300);
+  const setDesc = await safeTelegramCall('setMyDescriptions', async () => {
     await bot.api.setMyShortDescription('🚀 Ретро 80-е синтвейв аркада-кликер прямо в Telegram! Собирай комбо, бей рекорды и открывай космические корабли!');
     await bot.api.setMyDescription('🛸 Добро пожаловать в Neon Orbit!\n\n45-секундная космическая ретро-аркада в стиле 80s Synthwave.\n\n✨ Быстрые динамичные раунды\n⚡ Комбо-множители и гиперрежим\n🚀 Кастомизация кораблей в ангаре\n🏆 Глобальные и чат-рейтинги\n⭐ Telegram Stars и эксклюзивные скины\n\nНажми «🎮 Играть» или команду /start для старта!');
-  } catch (err: any) {
-    logger.info('setMyDescription notice (non-fatal):', err?.message || err);
+  }, 1);
+  if (setDesc.is401) return;
+  if (setDesc.success) {
+    logger.info('Telegram Bot descriptions registered.');
+  } else {
+    logger.info('setMyDescription notice (non-fatal):', setDesc.error?.message || setDesc.error);
   }
 
-  // 6. Launch Long-Polling Runner
+  // 7. Launch Long-Polling Runner (Only reached when getMe succeeded)
+  await delay(300);
   try {
     bot.start({
       drop_pending_updates: false,
@@ -744,13 +819,18 @@ export async function setupTelegramBot(app: express.Application): Promise<void> 
         logger.info(`🚀 Telegram Bot @${botInfo.username} (ID: ${botInfo.id}) is ACTIVE and listening for updates!`);
       },
     }).catch((err: any) => {
-      const isConflict = err?.error_code === 409 ||
-        (typeof err?.message === 'string' && (err.message.includes('409') || err.message.includes('terminated by setWebhook request')));
-
+      const errStr = String(err?.message || err);
+      const is401 = err?.error_code === 401 || errStr.includes('401') || errStr.includes('Unauthorized');
+      if (is401) {
+        logger.warn('Telegram Bot long-polling stopped: Token unauthorized (401).');
+        try { bot.stop(); } catch {}
+        return;
+      }
+      const isConflict = err?.error_code === 409 || errStr.includes('409') || errStr.includes('terminated by setWebhook request');
       if (isConflict) {
         logger.info('Telegram Bot polling yielded to an active conflict.');
       } else {
-        logger.warn('Telegram Bot long-polling error:', err?.message || err);
+        logger.warn('Telegram Bot long-polling error:', errStr);
       }
     });
   } catch (err: any) {
