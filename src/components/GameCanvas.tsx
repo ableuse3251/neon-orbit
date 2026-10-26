@@ -258,7 +258,26 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             state.bossesDefeated++;
             createExplosion(targetPxX, targetPxY, target.color, 28);
             audioManager.playBeacon();
-            triggerHaptic('heavy');
+
+            const isMilestone = state.combo > 0 && state.combo % 10 === 0;
+            if (isMilestone) {
+              triggerHaptic('impact');
+            } else {
+              triggerHaptic('heavy');
+            }
+
+            if (isMilestone) {
+              state.floatingTexts.push(
+                floatingTextPool.acquire(
+                  `fl_combo_${Date.now()}_${state.combo}`,
+                  `🔥 ${state.combo}x COMBO MILESTONE!`,
+                  targetPxX,
+                  targetPxY - 26,
+                  '#00F5D4',
+                  1.6
+                )
+              );
+            }
             state.floatingTexts.push(
               floatingTextPool.acquire(
                 `fl_${Date.now()}_${Math.random()}`,
@@ -336,15 +355,36 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           const pointsGained = Math.round(target.points * comboMultiplier * bonusMultiplier);
           state.score += pointsGained;
 
+          const isMilestone = state.combo > 0 && state.combo % 10 === 0;
+
+          if (isMilestone) {
+            triggerHaptic('impact');
+          } else if (target.type === 'golden_beacon' || target.type === 'double_beacon') {
+            triggerHaptic('heavy');
+          } else {
+            triggerHaptic('light');
+          }
+
           if (target.type === 'golden_beacon' || target.type === 'double_beacon') {
             state.goldenBeaconsHit++;
             audioManager.playBeacon();
-            triggerHaptic('heavy');
             createExplosion(targetPxX, targetPxY, target.color, 24);
           } else {
             audioManager.playTap(comboMultiplier);
-            triggerHaptic('light');
             createExplosion(targetPxX, targetPxY, target.color, 16);
+          }
+
+          if (isMilestone) {
+            state.floatingTexts.push(
+              floatingTextPool.acquire(
+                `fl_combo_${Date.now()}_${state.combo}`,
+                `🔥 ${state.combo}x COMBO MILESTONE!`,
+                targetPxX,
+                targetPxY - 26,
+                '#00F5D4',
+                1.5
+              )
+            );
           }
 
           state.floatingTexts.push(

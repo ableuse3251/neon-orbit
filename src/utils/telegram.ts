@@ -191,16 +191,43 @@ export const initTelegramSDK = (): { user: TelegramUser; startParam?: string; is
   };
 };
 
-export const triggerHaptic = (type: 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error' | 'selection') => {
-  const app = getTelegramApp();
-  if (!app?.HapticFeedback) return;
+export type HapticType = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error' | 'selection' | 'impact';
 
-  if (type === 'success' || type === 'warning' || type === 'error') {
-    app.HapticFeedback.notificationOccurred(type);
-  } else if (type === 'selection') {
-    app.HapticFeedback.selectionChanged();
-  } else {
-    app.HapticFeedback.impactOccurred(type);
+export const triggerHaptic = (
+  type: HapticType,
+  impactStyle: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft' = 'heavy'
+) => {
+  const app = getTelegramApp();
+  if (app?.HapticFeedback) {
+    if (type === 'success' || type === 'warning' || type === 'error') {
+      app.HapticFeedback.notificationOccurred(type);
+    } else if (type === 'selection') {
+      app.HapticFeedback.selectionChanged();
+    } else if (type === 'impact') {
+      app.HapticFeedback.impactOccurred(impactStyle);
+    } else {
+      app.HapticFeedback.impactOccurred(type);
+    }
+    return;
+  }
+
+  // Fallback for standard mobile browsers outside Telegram
+  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+    try {
+      if (type === 'impact' || type === 'heavy') {
+        navigator.vibrate([40, 30, 40]);
+      } else if (type === 'medium') {
+        navigator.vibrate(25);
+      } else if (type === 'light' || type === 'selection') {
+        navigator.vibrate(12);
+      } else if (type === 'error') {
+        navigator.vibrate([30, 50, 30]);
+      } else if (type === 'success') {
+        navigator.vibrate([20, 30, 20]);
+      }
+    } catch {
+      // ignore
+    }
   }
 };
 
