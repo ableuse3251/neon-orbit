@@ -24,6 +24,16 @@ export const translations = {
     freezeActive: 'FREEZE',
     shieldActive: 'SHIELD',
     pause: 'Pause',
+    comboMeter: 'COMBO METER',
+    comboHits: 'HITS',
+    tierStreak: 'STREAK',
+    tierSurge: 'SURGE',
+    tierHyper: 'HYPER',
+    tierOverdrive: 'OVERDRIVE',
+    tierUltra: 'ULTRA',
+    tierOmega: 'OMEGA',
+    nextMultiplier: 'NEXT',
+    maxMultiplier: 'MAX MULTIPLIER',
 
     // Flight Log Receipt
     flightLogTitle: 'Flight Log // Receipt',
@@ -123,6 +133,16 @@ export const translations = {
     freezeActive: 'ЗАМОРОЗКА',
     shieldActive: 'ЩИТ',
     pause: 'Пауза',
+    comboMeter: 'КОМБО МЕТР',
+    comboHits: 'УДАРОВ',
+    tierStreak: 'СЕРИЯ',
+    tierSurge: 'РАЗГОН',
+    tierHyper: 'ГИПЕР',
+    tierOverdrive: 'ОВЕРДРАЙВ',
+    tierUltra: 'УЛЬТРА',
+    tierOmega: 'ОМЕГА',
+    nextMultiplier: 'СЛЕД',
+    maxMultiplier: 'МАКС МНОЖИТЕЛЬ',
 
     // Flight Log Receipt
     flightLogTitle: 'Бортовой Журнал // Чек',

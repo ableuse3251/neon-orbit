@@ -3,6 +3,7 @@ import { Pause, Play, Volume2, VolumeX, Shield, Zap, Target, Flame, Sparkles } f
 import { PowerupType } from '../types/game';
 import { getTranslation, Language } from '../utils/i18n';
 import { triggerHaptic } from '../utils/telegram';
+import { ComboMeter } from './ComboMeter';
 
 interface HUDProps {
   score: number;
@@ -118,6 +119,13 @@ export const HUD: React.FC<HUDProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Visual Animated Combo Meter reflecting current multiplier level */}
+      <ComboMeter
+        combo={combo}
+        multiplier={multiplier}
+        lang={lang}
+      />
 
       {/* Target Ghost Score Badge for Challenge / Duel Mode */}
       {targetGhostScore && targetGhostScore > 0 && (
