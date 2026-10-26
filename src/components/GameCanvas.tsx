@@ -450,7 +450,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             state.score = Math.max(0, state.score - 250);
 
             if (!reduceMotion) {
-              state.screenShake = 22;
+              state.screenShake = 28;
             }
             audioManager.playMine();
             triggerHaptic('error');
