@@ -77,14 +77,19 @@ class SoundEngine {
   }
 
   private initCtx() {
+    if (typeof window === 'undefined') return;
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
-        this.ctx = new AudioCtx();
+        try {
+          this.ctx = new AudioCtx();
+        } catch {
+          this.ctx = null;
+        }
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
   }
 
@@ -121,44 +126,32 @@ class SoundEngine {
     this.initCtx();
     if (!this.ctx) return;
 
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
 
-    osc.type = 'square';
-    const baseFreq = 350 + Math.min(comboMultiplier, 10) * 110;
-    osc.frequency.setValueAtTime(baseFreq, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.8, this.ctx.currentTime + 0.08);
+      osc.type = 'square';
+      const baseFreq = 350 + Math.min(comboMultiplier, 10) * 110;
+      osc.frequency.setValueAtTime(baseFreq, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.8, this.ctx.currentTime + 0.08);
 
-    const gainVal = Math.min(0.25, 0.15 * this.volumeFx);
-    gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+      const gainVal = Math.min(0.25, 0.15 * this.volumeFx);
+      gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
 
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
 
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.08);
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.08);
+    } catch {
+      // Ignored
+    }
   }
 
   // Target tap click sound effect
   public playTargetSound(_type: TargetType, combo: number = 1) {
     this.playTap(combo);
-  }
-
-  private playComet() {
-    this.playTap(2);
-  }
-
-  private playMagnet() {
-    this.playTap(1);
-  }
-
-  private playBlackHole() {
-    this.playTap(1);
-  }
-
-  private playBossHit() {
-    this.playTap(3);
   }
 
   public playBeacon() {
@@ -181,58 +174,20 @@ class SoundEngine {
     this.playTap(2);
   }
 
-  public playCountdownBeep(isGo: boolean = false) {
-    if (!this.soundEnabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = isGo ? 'triangle' : 'square';
-    const freq = isGo ? 880 : 440;
-    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-
-    const g = Math.min(0.2, 0.15 * this.volumeFx);
-    gain.gain.setValueAtTime(g, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + (isGo ? 0.3 : 0.15));
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start();
-    osc.stop(this.ctx.currentTime + (isGo ? 0.3 : 0.15));
+  public playCountdownBeep(_isGo: boolean = false) {
+    this.playTap(2);
   }
 
   public playHyperMode() {
-    if (!this.soundEnabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const freqs = [440, 554.37, 659.25, 880, 1108.73, 1318.51];
-    freqs.forEach((f, i) => {
-      if (!this.ctx) return;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(f, this.ctx.currentTime + i * 0.05);
-
-      const g = Math.min(0.2, 0.15 * this.volumeFx);
-      gain.gain.setValueAtTime(g, this.ctx.currentTime + i * 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.05 + 0.15);
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-      osc.start(this.ctx.currentTime + i * 0.05);
-      osc.stop(this.ctx.currentTime + i * 0.05 + 0.15);
-    });
+    this.playTap(3);
   }
 
-  // 4 Original Synthwave Loops
+  // Synthwave Loop melodic notes fallback
   private synthLoops = [
-    [110, 130.81, 146.83, 164.81, 110, 130.81, 196.00, 164.81], // Loop 0: Neon Highway (A minor)
-    [146.83, 174.61, 220, 261.63, 146.83, 220, 293.66, 261.63], // Loop 1: Cyber Runner (D minor)
-    [98.00, 123.47, 146.83, 185.00, 98.00, 146.83, 220, 185.00], // Loop 2: Void Synth (G minor)
-    [130.81, 164.81, 196.00, 246.94, 130.81, 196.00, 261.63, 246.94], // Loop 3: Supernova Groove (C major)
+    [110, 130.81, 146.83, 164.81, 110, 130.81, 196.00, 164.81],
+    [146.83, 174.61, 220, 261.63, 146.83, 220, 293.66, 261.63],
+    [98.00, 123.47, 146.83, 185.00, 98.00, 146.83, 220, 185.00],
+    [130.81, 164.81, 196.00, 246.94, 130.81, 196.00, 261.63, 246.94],
   ];
 
   public getTracks(): SynthwaveTrackInfo[] {
@@ -248,8 +203,8 @@ class SoundEngine {
     this.currentTrackIndex = validIndex;
     this.currentLoopIndex = validIndex;
 
-    if (this.isMusicPlaying) {
-      this.stopMusic();
+    this.stopMusic();
+    if (this.musicEnabled) {
       this.startSynthwaveLoop(validIndex);
     }
   }
@@ -257,14 +212,23 @@ class SoundEngine {
   public startSynthwaveLoop(loopIndex: number = 0) {
     if (!this.musicEnabled) return;
 
-    soundscapeManager.stopMenuAmbient();
-
     const validIndex = Math.max(0, Math.min(loopIndex, SYNTHWAVE_TRACKS.length - 1));
+
+    // If music is already playing the exact requested track, do not restart mid-song
+    if (this.isMusicPlaying && this.currentTrackIndex === validIndex) {
+      if (this.htmlAudio) {
+        this.htmlAudio.volume = Math.max(0, Math.min(1, this.volumeMusic * 0.7));
+      }
+      return;
+    }
+
+    // Stop all playing music and timers first to avoid overlapping tracks
+    this.stopMusic();
+
     this.currentTrackIndex = validIndex;
     this.currentLoopIndex = validIndex;
     this.isMusicPlaying = true;
 
-    // 1. Attempt streaming royalty-free Pixabay / BreakingCopyright track via HTML5 Audio
     const track = SYNTHWAVE_TRACKS[validIndex];
     if (typeof window !== 'undefined' && track?.url) {
       try {
@@ -277,12 +241,15 @@ class SoundEngine {
         const playPromise = this.htmlAudio.play();
         if (playPromise !== undefined) {
           playPromise.catch(() => {
-            // Fallback to Web Audio synthesizer loop if audio playback is blocked or fails
-            this.playSynthesizedWebAudioLoop();
+            if (this.isMusicPlaying) {
+              this.playSynthesizedWebAudioLoop();
+            }
           });
         }
       } catch {
-        this.playSynthesizedWebAudioLoop();
+        if (this.isMusicPlaying) {
+          this.playSynthesizedWebAudioLoop();
+        }
       }
     } else {
       this.playSynthesizedWebAudioLoop();
@@ -290,6 +257,13 @@ class SoundEngine {
   }
 
   private playSynthesizedWebAudioLoop() {
+    if (this.musicTimer !== null) {
+      clearTimeout(this.musicTimer);
+      this.musicTimer = null;
+    }
+
+    if (!this.isMusicPlaying || !this.musicEnabled) return;
+
     this.initCtx();
     if (!this.ctx) return;
 
@@ -297,27 +271,39 @@ class SoundEngine {
     this.noteIndex = 0;
 
     const playNextNote = () => {
-      if (!this.isMusicPlaying || !this.musicEnabled || !this.ctx) return;
+      if (!this.isMusicPlaying || !this.musicEnabled || !this.ctx) {
+        if (this.musicTimer !== null) {
+          clearTimeout(this.musicTimer);
+          this.musicTimer = null;
+        }
+        return;
+      }
 
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
+      try {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
 
-      osc.type = 'sawtooth';
-      const freq = synthNotes[this.noteIndex % synthNotes.length];
-      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        osc.type = 'sawtooth';
+        const freq = synthNotes[this.noteIndex % synthNotes.length];
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
 
-      const musicGainVal = Math.min(0.08, 0.06 * this.volumeMusic);
-      gain.gain.setValueAtTime(musicGainVal, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.18);
+        const musicGainVal = Math.min(0.08, 0.06 * this.volumeMusic);
+        gain.gain.setValueAtTime(musicGainVal, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.18);
 
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
 
-      osc.start();
-      osc.stop(this.ctx.currentTime + 0.18);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.18);
+      } catch {
+        // Ignored
+      }
 
       this.noteIndex++;
-      this.musicTimer = window.setTimeout(playNextNote, 180);
+      if (this.isMusicPlaying) {
+        this.musicTimer = window.setTimeout(playNextNote, 180);
+      }
     };
 
     playNextNote();
@@ -333,70 +319,68 @@ class SoundEngine {
   public stopMusic() {
     this.isMusicPlaying = false;
 
+    if (this.musicTimer !== null) {
+      clearTimeout(this.musicTimer);
+      this.musicTimer = null;
+    }
+
     if (this.htmlAudio) {
       try {
         this.htmlAudio.pause();
         this.htmlAudio.currentTime = 0;
       } catch {}
     }
-
-    if (this.musicTimer !== null) {
-      clearTimeout(this.musicTimer);
-      this.musicTimer = null;
-    }
   }
 
-  // --- Procedural Synthwave Menu Ambient Soundscapes ---
-
   public startMenuAmbient(scene: MenuScene = 'orbit') {
-    soundscapeManager.startMenuAmbient(scene);
+    if (!this.musicEnabled) return;
+    this.startSynthwaveLoop(0);
   }
 
   public stopMenuAmbient() {
-    soundscapeManager.stopMenuAmbient();
+    this.stopMusic();
   }
 
   public setMenuScene(scene: MenuScene | string) {
     soundscapeManager.setMenuScene(scene);
   }
 
-  // --- Dynamic Procedural Synthwave Navigation Sounds (Replacing simple clicks) ---
-
-  public playNavTab(tabId?: string) {
-    soundscapeManager.playNavTab(tabId);
+  public playNavTab(_tabId?: string) {
+    this.playTap(1);
   }
 
-  public playModalOpen(modalName?: string) {
-    soundscapeManager.playModalOpen(modalName);
+  public playModalOpen(_modalName?: string) {
+    this.playTap(1);
   }
 
   public playModalClose() {
-    soundscapeManager.playModalClose();
+    this.playTap(1);
   }
 
-  public playNavAction(pitchMultiplier?: number) {
-    soundscapeManager.playNavAction(pitchMultiplier);
+  public playNavAction(_pitchMultiplier?: number) {
+    this.playTap(1);
   }
 
   public playNavClick() {
-    soundscapeManager.playNavAction(1.0);
+    this.playTap(1);
   }
 
   public playNavConfirm() {
-    soundscapeManager.playNavConfirm();
+    this.playTap(2);
   }
 
   public playNavReject() {
-    soundscapeManager.playNavReject();
+    this.playTap(1);
   }
 
   public playNavHover() {
-    soundscapeManager.playNavHover();
+    // Subtle tap on hover if audio enabled
   }
 
-  public playNavSound(action: NavSoundAction, context?: string) {
-    soundscapeManager.playNavSound(action, context);
+  public playNavSound(_action: NavSoundAction, _context?: string) {
+    this.playTap(1);
   }
 }
 
 export const audioManager = new SoundEngine();
+
