@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { config, configErrors, getEffectiveAllowedOrigins } from './config.js';
 import { logger } from './logger.js';
 import { redisIncrWithExpire } from './redis.js';
@@ -129,18 +129,19 @@ export function createApp() {
           // fallback to client IP
         }
       }
-      // 2. Client IP from standard reverse proxy headers
+      // 2. Client IP from standard reverse proxy headers normalized with ipKeyGenerator
+      let rawIp = '';
       const forwarded = req.headers['x-forwarded-for'];
       if (typeof forwarded === 'string' && forwarded.trim()) {
-        const clientIp = forwarded.split(',')[0].trim();
-        if (clientIp) return `ip_${clientIp}`;
+        rawIp = forwarded.split(',')[0].trim();
+      } else if (typeof req.headers['x-real-ip'] === 'string' && (req.headers['x-real-ip'] as string).trim()) {
+        rawIp = (req.headers['x-real-ip'] as string).trim();
+      } else {
+        rawIp = req.ip || '127.0.0.1';
       }
-      const realIp = req.headers['x-real-ip'];
-      if (typeof realIp === 'string' && realIp.trim()) {
-        return `ip_${realIp.trim()}`;
-      }
-      return `ip_${req.ip || 'client'}`;
+      return `ip_${ipKeyGenerator(rawIp)}`;
     },
+    validate: { ip: false },
     message: { success: false, error: 'Too many requests.' },
     store: {
       init: () => {},
