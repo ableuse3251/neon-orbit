@@ -7,6 +7,7 @@ import { COSMETIC_ITEMS, COSMETIC_COLLECTIONS, CosmeticCollection } from '../sha
 import { triggerHaptic } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
 import { api } from '../utils/api';
+import { audioManager } from '../utils/audio';
 import {
   ShipCategoryIcon,
   TrailCategoryIcon,
@@ -121,12 +122,14 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
 
   const handleBuy = async (item: CosmeticItem) => {
     if (profile.stardust < item.priceStardust) {
+      audioManager.playNavReject();
       triggerHaptic('error');
       return;
     }
     setLoadingItemId(item.id);
     try {
       const res = await api.buyItem(item.id);
+      audioManager.playNavConfirm();
       triggerHaptic('success');
       const updated: PlayerProfile = {
         ...profile,
@@ -134,7 +137,9 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
         unlockedCosmetics: Array.from(new Set([...profile.unlockedCosmetics, item.id])),
       };
       onUpdateProfile(updated);
-    } catch (err) {      triggerHaptic('error');
+    } catch (err) {
+      audioManager.playNavReject();
+      triggerHaptic('error');
       console.warn('Shop purchase error:', err);
     } finally {
       setLoadingItemId(null);
@@ -145,6 +150,7 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
     setLoadingItemId(item.id);
     try {
       await api.equipItem(item.category, item.id);
+      audioManager.playNavConfirm();
       triggerHaptic('selection');
       const updated: PlayerProfile = { ...profile };
       switch (item.category) {
@@ -172,6 +178,7 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
       }
       onUpdateProfile(updated);
     } catch (err) {
+      audioManager.playNavReject();
       triggerHaptic('error');
       console.warn('Equip error:', err);
     } finally {
@@ -182,6 +189,7 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
   const handleBuyCollection = async (coll: CosmeticCollection) => {
     const missingIds = coll.itemIds.filter((id) => !profile.unlockedCosmetics.includes(id));
     if (missingIds.length === 0) {
+      audioManager.playNavAction(1.0);
       triggerHaptic('selection');
       return;
     }
@@ -190,6 +198,7 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
     const discountedPrice = Math.round(totalPrice * (1 - coll.discountPercent / 100));
 
     if (profile.stardust < discountedPrice) {
+      audioManager.playNavReject();
       triggerHaptic('error');
       return;
     }
@@ -200,6 +209,7 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
           await api.buyItem(item.id);
         }
       }
+      audioManager.playNavConfirm();
       triggerHaptic('success');
       const newUnlocked = Array.from(new Set([...profile.unlockedCosmetics, ...missingIds]));
       const updated: PlayerProfile = {
@@ -209,6 +219,7 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
       };
       onUpdateProfile(updated);
     } catch (err) {
+      audioManager.playNavReject();
       triggerHaptic('error');
       console.warn('Collection purchase error:', err);
     } finally {
@@ -251,7 +262,11 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
             <motion.button
               whileHover={{ scale: 1.15, rotate: 90 }}
               whileTap={{ scale: 0.88 }}
-              onClick={onClose}
+              onMouseEnter={() => audioManager.playNavHover()}
+              onClick={() => {
+                audioManager.playModalClose();
+                onClose();
+              }}
               className="p-1 text-gray-400 hover:text-white transition-colors"
             >
               <X className="w-5 h-5" />
@@ -264,7 +279,9 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
           <motion.button
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.98 }}
+            onMouseEnter={() => audioManager.playNavHover()}
             onClick={() => {
+              audioManager.playNavTab('shop');
               triggerHaptic('selection');
               setActiveTab('shop');
             }}
@@ -286,7 +303,9 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
           <motion.button
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.98 }}
+            onMouseEnter={() => audioManager.playNavHover()}
             onClick={() => {
+              audioManager.playNavTab('collections');
               triggerHaptic('selection');
               setActiveTab('collections');
             }}
@@ -316,7 +335,9 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                   key={cat.id}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.94 }}
+                  onMouseEnter={() => audioManager.playNavHover()}
                   onClick={() => {
+                    audioManager.playNavTab(cat.id);
                     triggerHaptic('selection');
                     setActiveCategory(cat.id);
                     const first = COSMETIC_ITEMS.find((i) => i.category === cat.id);

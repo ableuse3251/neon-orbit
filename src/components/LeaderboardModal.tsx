@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { PlayerProfile } from '../types/game';
 import { getTranslation } from '../utils/i18n';
 import { RankShield3D } from './ui/Icons';
+import { audioManager } from '../utils/audio';
 
 interface LeaderboardEntry {
   userId: number;
@@ -112,7 +113,11 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           <motion.button
             whileHover={{ scale: 1.15, rotate: 90 }}
             whileTap={{ scale: 0.88 }}
-            onClick={onClose}
+            onMouseEnter={() => audioManager.playNavHover()}
+            onClick={() => {
+              audioManager.playModalClose();
+              onClose();
+            }}
             className="p-1 rounded-lg bg-[#210b42] text-gray-400 hover:text-white border border-[#9d4edd]/30 transition-colors"
           >
             <X className="w-5 h-5" />
@@ -130,7 +135,11 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
               key={item.id}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.96 }}
-              onClick={() => handleTabChange(item.id)}
+              onMouseEnter={() => audioManager.playNavHover()}
+              onClick={() => {
+                audioManager.playNavTab(item.id);
+                handleTabChange(item.id);
+              }}
               className={`relative flex-1 py-1.5 px-2 rounded-lg font-pixel text-[9px] sm:text-[10px] flex items-center justify-center gap-1 transition-colors z-10 ${
                 tab === item.id
                   ? 'text-[#0b071e] font-bold'

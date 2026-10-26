@@ -7,6 +7,7 @@ import { getTranslation } from '../utils/i18n';
 import { getLevelFromXp } from '../utils/progression';
 import { StardustCrystalIcon, StarXtrIcon } from './ui/Icons';
 import { triggerHaptic } from '../utils/telegram';
+import { audioManager } from '../utils/audio';
 
 interface TopNavProps {
   profile: PlayerProfile;
@@ -78,7 +79,9 @@ export const TopNav: React.FC<TopNavProps> = ({
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.96 }}
         transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+        onMouseEnter={() => audioManager.playNavHover()}
         onClick={() => {
+          audioManager.playModalOpen('registration');
           triggerHaptic('light');
           onOpenProfile();
         }}
@@ -133,7 +136,9 @@ export const TopNav: React.FC<TopNavProps> = ({
             type="button"
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
+            onMouseEnter={() => audioManager.playNavHover()}
             onClick={() => {
+              audioManager.playModalOpen('admin');
               triggerHaptic('light');
               onOpenAdminPanel();
             }}
@@ -151,7 +156,9 @@ export const TopNav: React.FC<TopNavProps> = ({
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.94 }}
           transition={{ type: 'spring', stiffness: 450, damping: 20 }}
+          onMouseEnter={() => audioManager.playNavHover()}
           onClick={() => {
+            audioManager.playModalOpen('shop');
             triggerHaptic('selection');
             onOpenShop();
           }}
@@ -170,7 +177,9 @@ export const TopNav: React.FC<TopNavProps> = ({
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.94 }}
           transition={{ type: 'spring', stiffness: 450, damping: 20 }}
+          onMouseEnter={() => audioManager.playNavHover()}
           onClick={() => {
+            audioManager.playModalOpen('shop');
             triggerHaptic('selection');
             onOpenStarsShop();
           }}
@@ -188,7 +197,9 @@ export const TopNav: React.FC<TopNavProps> = ({
           whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.92 }}
           transition={{ type: 'spring', stiffness: 450, damping: 20 }}
+          onMouseEnter={() => audioManager.playNavHover()}
           onClick={() => {
+            audioManager.playModalOpen('settings');
             triggerHaptic('selection');
             onOpenSettings();
           }}

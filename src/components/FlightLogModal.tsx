@@ -4,6 +4,7 @@ import { animate } from 'animejs';
 import { RoundStats, PlayerProfile } from '../types/game';
 import { shareChallengeLink, triggerHaptic } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
+import { audioManager } from '../utils/audio';
 
 interface FlightLogModalProps {
   stats: RoundStats;
@@ -275,6 +276,7 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
         <div className="flex flex-col gap-2.5 pt-2">
           <button
             onClick={() => {
+              audioManager.playNavAction(1.2);
               triggerHaptic('medium');
               onRestart();
             }}
@@ -286,7 +288,10 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
 
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={handleShareStoryOrLink}
+              onClick={() => {
+                audioManager.playNavConfirm();
+                handleShareStoryOrLink();
+              }}
               className="py-2.5 px-3 bg-[#ff007f] text-white font-pixel text-xs rounded-lg hover:bg-[#ff007f]/90 transition-all flex items-center justify-center gap-1.5"
             >
               <Share2 className="w-3.5 h-3.5" />
@@ -295,6 +300,7 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
 
             <button
               onClick={() => {
+                audioManager.playModalOpen('leaderboard');
                 triggerHaptic('light');
                 onOpenLeaderboard();
               }}
@@ -308,6 +314,7 @@ export const FlightLogModal: React.FC<FlightLogModalProps> = ({
           {onHome && (
             <button
               onClick={() => {
+                audioManager.playModalClose();
                 triggerHaptic('medium');
                 onHome();
               }}

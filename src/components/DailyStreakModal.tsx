@@ -5,6 +5,7 @@ import { PlayerProfile } from '../types/game';
 import { triggerHaptic } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
 import { DailyChest3DIcon, DailyStreakIcon, StardustCrystalIcon } from './ui/Icons';
+import { audioManager } from '../utils/audio';
 
 interface DailyStreakModalProps {
   profile: PlayerProfile;
@@ -80,9 +81,12 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
   const handleClaim = async () => {
     if (isClaimedToday || isClaiming) return;
     setIsClaiming(true);
-    try {      triggerHaptic('success');
+    try {
+      audioManager.playNavConfirm();
+      triggerHaptic('success');
       await onClaimReward();
-    } finally {      setIsClaiming(false);
+    } finally {
+      setIsClaiming(false);
     }
   };
 
@@ -116,7 +120,11 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
           <motion.button
             whileHover={{ scale: 1.15, rotate: 90 }}
             whileTap={{ scale: 0.88 }}
-            onClick={onClose}
+            onMouseEnter={() => audioManager.playNavHover()}
+            onClick={() => {
+              audioManager.playModalClose();
+              onClose();
+            }}
             className="p-1.5 rounded-lg bg-[#210b42] text-gray-400 hover:text-white border border-[#9d4edd]/30 transition-colors"
           >
             <X className="w-4 h-4" />

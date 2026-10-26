@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { PlayerProfile } from '../types/game';
 import { ModalType } from '../store/modalStore';
 import { triggerHaptic } from '../utils/telegram';
+import { audioManager } from '../utils/audio';
 import {
   OrbitRocketIcon,
   HangarShipIcon,
@@ -95,7 +96,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               key={tab.id ?? 'orbit'}
               type="button"
               whileTap={{ scale: 0.92 }}
+              onMouseEnter={() => audioManager.playNavHover()}
               onClick={() => {
+                audioManager.playNavTab(tab.id || 'orbit');
                 triggerHaptic('selection');
                 onSelectTab(tab.id);
               }}

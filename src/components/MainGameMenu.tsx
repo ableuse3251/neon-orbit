@@ -8,6 +8,7 @@ import { triggerHaptic } from '../utils/telegram';
 import { OrbitRocketIcon, DailyStreakIcon, MotionShipPreview } from './ui/Icons';
 import { EventBanner } from './EventBanner';
 import { ModalType } from '../store/modalStore';
+import { audioManager } from '../utils/audio';
 
 interface MainGameMenuProps {
   profile: PlayerProfile;
@@ -99,6 +100,7 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
             eventConfig={eventConfig}
             lang={profile.lang}
             onBannerClick={() => {
+              audioManager.playModalOpen('seasonPass');
               triggerHaptic('light');
               onOpenModal('seasonPass');
             }}
@@ -109,7 +111,9 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
       {/* Interactive Cosmic Ship Hangar Deck */}
       <div
         ref={shipCardRef}
+        onMouseEnter={() => audioManager.playNavHover()}
         onClick={() => {
+          audioManager.playModalOpen('shop');
           triggerHaptic('medium');
           onOpenModal('shop');
         }}
@@ -185,7 +189,9 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+          onMouseEnter={() => audioManager.playNavHover()}
           onClick={() => {
+            audioManager.playNavAction(1.2);
             triggerHaptic('heavy');
             onStartRound(false, false);
           }}
@@ -206,7 +212,9 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+            onMouseEnter={() => audioManager.playNavHover()}
             onClick={() => {
+              audioManager.playNavAction(1.1);
               triggerHaptic('medium');
               onStartRound(true, false);
             }}
@@ -222,7 +230,9 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+            onMouseEnter={() => audioManager.playNavHover()}
             onClick={() => {
+              audioManager.playNavAction(1.0);
               triggerHaptic('light');
               onStartRound(false, true);
             }}
@@ -238,7 +248,9 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+          onMouseEnter={() => audioManager.playNavHover()}
           onClick={() => {
+            audioManager.playModalOpen('missions');
             triggerHaptic('light');
             onOpenModal('dailyContent');
           }}
@@ -254,7 +266,9 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+          onMouseEnter={() => audioManager.playNavHover()}
           onClick={() => {
+            audioManager.playModalOpen('referrals');
             triggerHaptic('light');
             onOpenModal('viral');
           }}

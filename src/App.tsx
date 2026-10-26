@@ -59,11 +59,17 @@ export default function App() {
 
   const handleSelectTab = useCallback((tab: ModalType | null) => {
     if (tab === null) {
+      audioManager.playNavTab('orbit');
+      audioManager.setMenuScene('orbit');
       closeAllModals();
     } else {
       if (activeTab === tab) {
+        audioManager.playModalClose();
+        audioManager.setMenuScene('orbit');
         closeModal(tab);
       } else {
+        audioManager.playNavTab(tab);
+        audioManager.setMenuScene(tab);
         closeAllModals();
         openModal(tab);
       }
@@ -250,6 +256,37 @@ export default function App() {
 
     flushPendingRoundsQueue();
   }, [profile.settings]);
+
+  // Procedural Synthwave Menu Ambient Soundscape Lifecycle
+  useEffect(() => {
+    if (gameState === 'MENU') {
+      const scene = activeTab || 'orbit';
+      if (profile.settings.music) {
+        audioManager.startMenuAmbient(scene);
+      }
+    } else {
+      audioManager.stopMenuAmbient();
+    }
+  }, [gameState, activeTab, profile.settings.music]);
+
+  // Unlock AudioContext and launch ambient soundscape on first user touch/click
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      if (gameState === 'MENU' && profile.settings.music) {
+        audioManager.startMenuAmbient(activeTab || 'orbit');
+      }
+      window.removeEventListener('pointerdown', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
+    };
+
+    window.addEventListener('pointerdown', handleFirstInteraction, { once: true });
+    window.addEventListener('keydown', handleFirstInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener('pointerdown', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
+    };
+  }, [gameState, activeTab, profile.settings.music]);
 
   useEffect(() => {
     const sdk = initTelegramSDK();

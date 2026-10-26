@@ -3,6 +3,10 @@
  */
 
 import { TargetType } from '../types/game';
+import { soundscapeManager, MenuScene, NavSoundAction } from './soundscape';
+
+export { soundscapeManager };
+export type { MenuScene, NavSoundAction };
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
@@ -36,6 +40,7 @@ class SoundEngine {
     this.volumeMusic = Math.max(0, Math.min(1, music));
     this.soundEnabled = this.volumeFx > 0;
     this.musicEnabled = this.volumeMusic > 0;
+    soundscapeManager.setVolumes(this.volumeFx, this.volumeMusic);
     if (!this.musicEnabled && this.isMusicPlaying) {
       this.stopMusic();
     }
@@ -43,10 +48,12 @@ class SoundEngine {
 
   public setSoundFx(enabled: boolean) {
     this.soundEnabled = enabled;
+    soundscapeManager.setSoundFx(enabled);
   }
 
   public setMusic(enabled: boolean) {
     this.musicEnabled = enabled;
+    soundscapeManager.setMusic(enabled);
     if (!enabled && this.isMusicPlaying) {
       this.stopMusic();
     }
@@ -373,6 +380,9 @@ class SoundEngine {
     this.initCtx();
     if (!this.ctx) return;
 
+    // Pause ambient menu soundscape while high-energy gameplay music is running
+    soundscapeManager.stopMenuAmbient();
+
     this.currentLoopIndex = Math.max(0, Math.min(loopIndex, this.synthLoops.length - 1));
     this.isMusicPlaying = true;
     const synthNotes = this.synthLoops[this.currentLoopIndex];
@@ -419,6 +429,54 @@ class SoundEngine {
       clearTimeout(this.musicTimer);
       this.musicTimer = null;
     }
+  }
+
+  // --- Procedural Synthwave Menu Ambient Soundscapes ---
+
+  public startMenuAmbient(scene: MenuScene = 'orbit') {
+    soundscapeManager.startMenuAmbient(scene);
+  }
+
+  public stopMenuAmbient() {
+    soundscapeManager.stopMenuAmbient();
+  }
+
+  public setMenuScene(scene: MenuScene | string) {
+    soundscapeManager.setMenuScene(scene);
+  }
+
+  // --- Dynamic Procedural Synthwave Navigation Sounds (Replacing simple clicks) ---
+
+  public playNavTab(tabId?: string) {
+    soundscapeManager.playNavTab(tabId);
+  }
+
+  public playModalOpen(modalName?: string) {
+    soundscapeManager.playModalOpen(modalName);
+  }
+
+  public playModalClose() {
+    soundscapeManager.playModalClose();
+  }
+
+  public playNavAction(pitchMultiplier?: number) {
+    soundscapeManager.playNavAction(pitchMultiplier);
+  }
+
+  public playNavConfirm() {
+    soundscapeManager.playNavConfirm();
+  }
+
+  public playNavReject() {
+    soundscapeManager.playNavReject();
+  }
+
+  public playNavHover() {
+    soundscapeManager.playNavHover();
+  }
+
+  public playNavSound(action: NavSoundAction, context?: string) {
+    soundscapeManager.playNavSound(action, context);
   }
 }
 
