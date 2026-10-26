@@ -154,6 +154,7 @@ export const getInitialProfile = (telegramUser?: { id: number; first_name: strin
       volumeFx: 0.8,
       volumeMusic: 0.6,
       hapticsEnabled: true,
+      hapticIntensity: 'high',
       crtIntensity: 'low',
       particleQuality: 'auto',
     },

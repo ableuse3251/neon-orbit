@@ -197,6 +197,28 @@ export const triggerHaptic = (
   type: HapticType,
   impactStyle: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft' = 'heavy'
 ) => {
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem('neon_orbit_player_profile');
+      if (raw) {
+        const profile = JSON.parse(raw);
+        const intensity = profile.settings?.hapticIntensity || (profile.settings?.hapticsEnabled ? 'high' : 'off');
+        if (intensity === 'off' || profile.settings?.hapticsEnabled === false) {
+          return;
+        }
+        if (intensity === 'low') {
+          impactStyle = 'light';
+        } else if (intensity === 'medium') {
+          impactStyle = 'medium';
+        } else {
+          impactStyle = 'heavy';
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   const app = getTelegramApp();
   if (app?.HapticFeedback) {
     if (type === 'success' || type === 'warning' || type === 'error') {
@@ -206,7 +228,8 @@ export const triggerHaptic = (
     } else if (type === 'impact') {
       app.HapticFeedback.impactOccurred(impactStyle);
     } else {
-      app.HapticFeedback.impactOccurred(type);
+      const mappedStyle = impactStyle === 'light' ? 'light' : impactStyle === 'medium' ? 'medium' : type === 'heavy' ? 'heavy' : type;
+      app.HapticFeedback.impactOccurred(mappedStyle as any);
     }
     return;
   }
@@ -214,16 +237,28 @@ export const triggerHaptic = (
   // Fallback for standard mobile browsers outside Telegram
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
     try {
+      let scale = 1.0;
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem('neon_orbit_player_profile');
+        if (raw) {
+          const profile = JSON.parse(raw);
+          const intensity = profile.settings?.hapticIntensity || 'high';
+          if (intensity === 'low') scale = 0.4;
+          else if (intensity === 'medium') scale = 0.7;
+          else if (intensity === 'high') scale = 1.2;
+        }
+      }
+
       if (type === 'impact' || type === 'heavy') {
-        navigator.vibrate([40, 30, 40]);
+        navigator.vibrate(Math.round([40, 30, 40].reduce((a, b) => a + b, 0) * scale));
       } else if (type === 'medium') {
-        navigator.vibrate(25);
+        navigator.vibrate(Math.round(25 * scale));
       } else if (type === 'light' || type === 'selection') {
-        navigator.vibrate(12);
+        navigator.vibrate(Math.round(12 * scale));
       } else if (type === 'error') {
-        navigator.vibrate([30, 50, 30]);
+        navigator.vibrate([Math.round(30 * scale), 50, Math.round(30 * scale)]);
       } else if (type === 'success') {
-        navigator.vibrate([20, 30, 20]);
+        navigator.vibrate([Math.round(20 * scale), 30, Math.round(20 * scale)]);
       }
     } catch {
       // ignore

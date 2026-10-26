@@ -181,12 +181,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             description="Daily rewards & event notifications"
           />
 
-          <KokonutSwitch
-            checked={!!settings.hapticsEnabled}
-            onChange={toggleHaptics}
-            label="Haptic Feedback"
-            description="Tactile vibration feedback on button presses"
-          />
+          {/* Haptic Feedback Intensity Selection */}
+          <KokonutCard variant="glass" hoverEffect={false} className="flex flex-col gap-2">
+            <span className="text-[10px] font-pixel text-[#9d4edd] uppercase flex items-center gap-1.5">
+              <Sliders className="w-3.5 h-3.5 text-[#00f5d4]" />
+              <span>{profile.lang === 'ru' ? 'ИНТЕНСИВНОСТЬ ВИБРООТКЛИКА' : 'HAPTIC FEEDBACK INTENSITY'}</span>
+            </span>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(['off', 'low', 'medium', 'high'] as const).map((level) => {
+                const currentIntensity = settings.hapticIntensity || (settings.hapticsEnabled ? 'high' : 'off');
+                const isSelected = currentIntensity === level;
+                return (
+                  <KokonutButton
+                    key={level}
+                    variant={isSelected ? 'glow' : 'glass'}
+                    size="sm"
+                    onClick={() => {
+                      triggerHaptic('selection');
+                      onUpdateSettings({
+                        ...settings,
+                        hapticIntensity: level,
+                        hapticsEnabled: level !== 'off',
+                      });
+                    }}
+                    className="w-full font-pixel text-[9px] uppercase"
+                  >
+                    {level === 'off' ? (profile.lang === 'ru' ? 'ВЫКЛ' : 'OFF') :
+                     level === 'low' ? (profile.lang === 'ru' ? 'НИЗК' : 'LOW') :
+                     level === 'medium' ? (profile.lang === 'ru' ? 'СРЕД' : 'MED') :
+                     (profile.lang === 'ru' ? 'ВЫСОК' : 'HIGH')}
+                  </KokonutButton>
+                );
+              })}
+            </div>
+          </KokonutCard>
 
           <KokonutSwitch
             checked={!!profile.hideFromLeaderboard}

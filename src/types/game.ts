@@ -216,6 +216,7 @@ export interface PlayerProfile {
     volumeFx: number; // 0.0 - 1.0
     volumeMusic: number; // 0.0 - 1.0
     hapticsEnabled: boolean;
+    hapticIntensity: 'low' | 'medium' | 'high' | 'off';
     crtIntensity: 'off' | 'low' | 'high';
     particleQuality: 'low' | 'auto' | 'high';
     reduceMotion?: boolean;
