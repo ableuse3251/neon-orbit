@@ -2,7 +2,7 @@
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import rateLimit from "express-rate-limit";
 
 // server/config.ts
 import dotenv from "dotenv";
@@ -834,31 +834,11 @@ async function requireAuth(req, res, next) {
 }
 
 // src/shared/targetGenerator.ts
-function getEntityCategory(type) {
-  if (type === "golden_beacon" || type === "double_beacon" || type === "comet" || type === "magnet") {
-    return "collectible";
-  }
-  if (type === "mine" || type === "black_hole" || type === "decoy_satellite" || type === "emp_pulse") {
-    return "hazard";
-  }
-  return "neutral";
-}
-function isForbiddenTarget(type) {
-  return type === "mine" || type === "black_hole" || type === "decoy_satellite" || type === "emp_pulse";
-}
 function normalizeMode(mode) {
   if (mode === "blitz") return "blitz";
   if (mode === "survival") return "survival";
   if (mode === "rhythm") return "rhythm";
   return "classic";
-}
-function getComboMultiplier(combo) {
-  if (combo >= 20) return 5;
-  if (combo >= 15) return 4;
-  if (combo >= 10) return 3;
-  if (combo >= 6) return 2;
-  if (combo >= 3) return 1.5;
-  return 1;
 }
 function seededRandom(seedStr) {
   let seed = 0;
@@ -880,184 +860,80 @@ function generateRoundTargets(seed, mode = "classic") {
   if (normMode === "blitz") durationMs = 2e4;
   if (normMode === "survival") durationMs = 6e4;
   if (normMode === "rhythm") durationMs = 45e3;
-  let currentMs = 400;
+  let currentMs = 500;
   let idCounter = 1;
-  while (currentMs < durationMs - 800) {
-    const progressRatio = currentMs / durationMs;
+  while (currentMs < durationMs - 1e3) {
     const rType = rng();
     let type = "asteroid";
     let points = 100;
-    let radius = 32;
+    let radius = 28;
     let speed = 1;
-    let lifespanMs = 5200;
+    let lifespanMs = 2500;
     let maxHp = 1;
-    const driftDirX = rng() > 0.5 ? 1 : -1;
-    const driftDirY = rng() > 0.5 ? 1 : -1;
-    let vxPct = driftDirX * (8 + rng() * 12);
-    let vyPct = driftDirY * (6 + rng() * 10);
-    if (progressRatio < 0.18) {
-      if (rType < 0.28) {
-        type = "golden_beacon";
-        points = 300;
-        radius = 28;
-        lifespanMs = 5e3;
-      } else if (rType < 0.5) {
-        type = "comet";
-        points = 200;
-        radius = 26;
-        vxPct *= 1.8;
-        vyPct *= 1.8;
-        lifespanMs = 4500;
-      } else {
-        type = "asteroid";
-        points = 100;
-        radius = 32;
-        lifespanMs = 5500;
-      }
-    } else if (progressRatio < 0.4) {
-      if (rType < 0.22) {
-        type = "golden_beacon";
-        points = 300;
-        radius = 28;
-        lifespanMs = 4800;
-      } else if (rType < 0.4) {
-        type = "double_beacon";
-        points = 450;
-        radius = 28;
-        lifespanMs = 4600;
-      } else if (rType < 0.6) {
-        type = "comet";
-        points = 200;
-        radius = 26;
-        vxPct *= 2;
-        vyPct *= 2;
-        lifespanMs = 4200;
-      } else if (rType < 0.75) {
-        type = "magnet";
-        points = 250;
-        radius = 30;
-        lifespanMs = 5e3;
-      } else if (rType < 0.88) {
-        type = "mine";
-        points = -250;
-        radius = 30;
-        lifespanMs = 5500;
-      } else {
-        type = "asteroid";
-        points = 100;
-        radius = 32;
-        lifespanMs = 5500;
-      }
-    } else if (progressRatio < 0.7) {
-      if (rType < 0.22) {
-        type = "mine";
-        points = -250;
-        radius = 30;
-        lifespanMs = 5800;
-      } else if (rType < 0.35) {
-        type = "black_hole";
-        points = -350;
-        radius = 36;
-        lifespanMs = 6e3;
-      } else if (rType < 0.48) {
-        type = "decoy_satellite";
-        points = -200;
-        radius = 30;
-        lifespanMs = 5200;
-      } else if (rType < 0.65) {
-        type = "golden_beacon";
-        points = 300;
-        radius = 28;
-        lifespanMs = 4800;
-      } else if (rType < 0.82) {
-        type = "double_beacon";
-        points = 450;
-        radius = 28;
-        lifespanMs = 4500;
-      } else {
-        type = "comet";
-        points = 200;
-        radius = 26;
-        vxPct *= 2.2;
-        vyPct *= 2.2;
-        lifespanMs = 4200;
-      }
-    } else if (progressRatio < 0.88) {
-      if (rType < 0.16) {
-        type = "boss_meteor";
-        points = 800;
-        radius = 46;
-        lifespanMs = 7500;
-        maxHp = 3;
-        vxPct *= 0.5;
-        vyPct *= 0.5;
-      } else if (rType < 0.35) {
-        type = "emp_pulse";
-        points = -300;
-        radius = 32;
-        lifespanMs = 5200;
-      } else if (rType < 0.58) {
-        type = "double_beacon";
-        points = 450;
-        radius = 28;
-        lifespanMs = 4500;
-      } else if (rType < 0.78) {
-        type = "golden_beacon";
-        points = 300;
-        radius = 28;
-        lifespanMs = 4800;
-      } else {
-        type = "magnet";
-        points = 250;
-        radius = 30;
-        lifespanMs = 5e3;
-      }
-    } else {
-      if (rType < 0.32) {
-        type = "double_beacon";
-        points = 450;
-        radius = 26;
-        lifespanMs = 4200;
-      } else if (rType < 0.62) {
-        type = "golden_beacon";
-        points = 300;
-        radius = 27;
-        lifespanMs = 4400;
-      } else if (rType < 0.82) {
-        type = "comet";
-        points = 200;
-        radius = 26;
-        vxPct *= 2.2;
-        vyPct *= 2.2;
-        lifespanMs = 4e3;
-      } else {
-        type = "mine";
-        points = -250;
-        radius = 30;
-        lifespanMs = 5200;
-      }
+    if (rType < 0.1) {
+      type = "golden_beacon";
+      points = 300;
+      radius = 22;
+      speed = 1.4;
+      lifespanMs = 2e3;
+    } else if (rType < 0.18) {
+      type = "double_beacon";
+      points = 450;
+      radius = 23;
+      speed = 1.5;
+      lifespanMs = 1900;
+    } else if (rType < 0.28) {
+      type = "comet";
+      points = 200;
+      radius = 24;
+      speed = 2.1;
+      lifespanMs = 1700;
+    } else if (rType < 0.38) {
+      type = "magnet";
+      points = 250;
+      radius = 25;
+      speed = 1.2;
+      lifespanMs = 2200;
+    } else if (rType < 0.52) {
+      type = "mine";
+      points = -150;
+      radius = 26;
+      speed = 0.9;
+      lifespanMs = 3e3;
+    } else if (rType < 0.58) {
+      type = "black_hole";
+      points = -250;
+      radius = 32;
+      speed = 0.6;
+      lifespanMs = 3500;
+    } else if (rType < 0.62) {
+      type = "boss_meteor";
+      points = 800;
+      radius = 42;
+      speed = 0.7;
+      lifespanMs = 5e3;
+      maxHp = 3;
     }
-    const xPct = 14 + rng() * 72;
-    const yPct = 18 + rng() * 58;
+    const progressFactor = currentMs / durationMs;
+    speed *= 1 + progressFactor * 0.35;
+    const xPct = 12 + rng() * 76;
+    const yPct = 18 + rng() * 64;
     targets.push({
       id: `t_${idCounter++}`,
       spawnTimeMs: Math.round(currentMs),
       type,
-      category: getEntityCategory(type),
       points,
       radius,
       speed: Number(speed.toFixed(2)),
       xPct: Number(xPct.toFixed(1)),
       yPct: Number(yPct.toFixed(1)),
-      vxPct: Number(vxPct.toFixed(2)),
-      vyPct: Number(vyPct.toFixed(2)),
       durationMs: lifespanMs,
       maxHp
     });
-    let intervalBase = 750;
-    if (normMode === "blitz") intervalBase = 500;
-    if (normMode === "rhythm") intervalBase = 650;
-    const nextInterval = intervalBase + rng() * 550 * (1 - progressRatio * 0.3);
+    let intervalBase = 700;
+    if (normMode === "blitz") intervalBase = 450;
+    if (normMode === "rhythm") intervalBase = 600;
+    const nextInterval = intervalBase + rng() * 600 * (1 - progressFactor * 0.3);
     currentMs += nextInterval;
   }
   return targets;
@@ -1088,10 +964,10 @@ function recalculateRound(seed, clickLogs, durationMs, mode = "classic") {
   });
   const normMode = normalizeMode(mode);
   const isTestEnv = process.env.NODE_ENV === "test" || mode === "test";
-  let minDuration = isTestEnv ? 100 : 35e3;
-  let maxDuration = 58e3;
+  let minDuration = isTestEnv ? 100 : 38e3;
+  let maxDuration = 55e3;
   if (normMode === "blitz") {
-    minDuration = isTestEnv ? 100 : 12e3;
+    minDuration = isTestEnv ? 100 : 15e3;
     maxDuration = 28e3;
   } else if (normMode === "survival") {
     minDuration = isTestEnv ? 100 : 5e3;
@@ -1114,7 +990,7 @@ function recalculateRound(seed, clickLogs, durationMs, mode = "classic") {
         left++;
       }
       const cps = right - left + 1;
-      if (cps > 22) {
+      if (cps > 20) {
         flags.push(`autoclicker_cps_${cps}`);
         return failResult("Unnatural tap frequency detected");
       }
@@ -1137,27 +1013,27 @@ function recalculateRound(seed, clickLogs, durationMs, mode = "classic") {
   for (const log of normalizedLogs) {
     if (typeof log.timestampMs !== "number" || !isFinite(log.timestampMs) || log.timestampMs < 0) {
       misses++;
-      combo = Math.max(0, combo - 1);
+      combo = 0;
       flags.push("invalid_timestamp");
       continue;
     }
     if (log.type === "hit") {
       if (!log.targetId || !targetMap.has(log.targetId)) {
         misses++;
-        combo = Math.max(0, combo - 1);
+        combo = 0;
         flags.push(`phantom_hit_target_${log.targetId}`);
         continue;
       }
       const target = targetMap.get(log.targetId);
       if (hitTargets.has(target.id)) {
         misses++;
-        combo = Math.max(0, combo - 1);
+        combo = 0;
         flags.push(`duplicate_hit_${target.id}`);
         continue;
       }
       if (log.timestampMs < target.spawnTimeMs - 250 || log.timestampMs > target.spawnTimeMs + target.durationMs + 500) {
         misses++;
-        combo = Math.max(0, combo - 1);
+        combo = 0;
         flags.push(`out_of_window_hit_${target.id}`);
         continue;
       }
@@ -1166,15 +1042,8 @@ function recalculateRound(seed, clickLogs, durationMs, mode = "classic") {
       const distanceSq = dx * dx + dy * dy;
       if (distanceSq > 400) {
         misses++;
-        combo = Math.max(0, combo - 1);
-        flags.push(`out_of_hitbox_${target.id}`);
-        continue;
-      }
-      if (isForbiddenTarget(target.type)) {
-        hitTargets.add(target.id);
-        minesHit++;
         combo = 0;
-        score = Math.max(0, score + target.points);
+        flags.push(`out_of_hitbox_${target.id}`);
         continue;
       }
       if (target.type === "boss_meteor") {
@@ -1182,8 +1051,6 @@ function recalculateRound(seed, clickLogs, durationMs, mode = "classic") {
         if (currentHp > 1) {
           bossHpTracker.set(target.id, currentHp - 1);
           hits++;
-          combo++;
-          if (combo > maxCombo) maxCombo = combo;
           score += 100;
           continue;
         } else {
@@ -1198,13 +1065,19 @@ function recalculateRound(seed, clickLogs, durationMs, mode = "classic") {
       combo++;
       if (combo > maxCombo) maxCombo = combo;
       if (target.type === "golden_beacon" || target.type === "double_beacon") goldenBeaconsHit++;
-      const comboMultiplier = getComboMultiplier(combo);
-      const bonusMultiplier = target.type === "double_beacon" ? 2 : 1;
-      score += Math.round(target.points * comboMultiplier * bonusMultiplier);
+      if (target.type === "mine") minesHit++;
+      if (target.type === "black_hole") blackHolesHit++;
+      const comboMultiplier = 1 + Math.floor(combo / 5) * 0.25;
+      if (target.points > 0) {
+        const bonusMultiplier = target.type === "double_beacon" ? 2 : 1;
+        score += Math.round(target.points * comboMultiplier * bonusMultiplier);
+      } else {
+        score = Math.max(0, score + target.points);
+        combo = 0;
+      }
     } else {
       misses++;
-      combo = Math.max(0, combo - 1);
-      score = Math.max(0, score - 25);
+      combo = 0;
     }
   }
   const accuracy = normalizedLogs.length > 0 ? hits / normalizedLogs.length * 100 : 0;
@@ -4883,16 +4756,6 @@ var token = config.botToken || process.env.TELEGRAM_BOT_TOKEN || "";
 var bot = new Bot(token || "111111111:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 bot.catch((err) => {
   const ctx = err.ctx;
-  const rawErr = err?.error;
-  const errStr = String(rawErr?.message || rawErr || err);
-  if (errStr.includes("401") || errStr.includes("Unauthorized")) {
-    logger.warn("Telegram Bot update error: Token unauthorized (401). Stopping bot polling.");
-    try {
-      bot.stop();
-    } catch {
-    }
-    return;
-  }
   logger.warn(`Telegram Bot error during update ${ctx?.update?.update_id || "unknown"}:`, err.error);
 });
 var APP_URL = (config.appUrl && !config.appUrl.includes("ais-dev-") && !config.appUrl.includes("localhost") ? config.appUrl : "") || "https://neon-orbit-omega.vercel.app";
@@ -7096,18 +6959,17 @@ function createApp() {
         } catch {
         }
       }
-      let rawIp = "";
       const forwarded = req.headers["x-forwarded-for"];
       if (typeof forwarded === "string" && forwarded.trim()) {
-        rawIp = forwarded.split(",")[0].trim();
-      } else if (typeof req.headers["x-real-ip"] === "string" && req.headers["x-real-ip"].trim()) {
-        rawIp = req.headers["x-real-ip"].trim();
-      } else {
-        rawIp = req.ip || "127.0.0.1";
+        const clientIp = forwarded.split(",")[0].trim();
+        if (clientIp) return `ip_${clientIp}`;
       }
-      return `ip_${ipKeyGenerator(rawIp)}`;
+      const realIp = req.headers["x-real-ip"];
+      if (typeof realIp === "string" && realIp.trim()) {
+        return `ip_${realIp.trim()}`;
+      }
+      return `ip_${req.ip || "client"}`;
     },
-    validate: false,
     message: { success: false, error: "Too many requests." },
     store: {
       init: () => {

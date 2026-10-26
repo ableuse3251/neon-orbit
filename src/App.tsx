@@ -537,6 +537,7 @@ export default function App() {
             xp: newXp,
             stardust: prev.stardust + res.rewardStardust,
             unlockedAchievements: Array.from(new Set([...prev.unlockedAchievements, achievementId])),
+            claimedAchievements: Array.from(new Set([...(prev.claimedAchievements || []), achievementId])),
           };
           saveProfile(updated);
           return updated;

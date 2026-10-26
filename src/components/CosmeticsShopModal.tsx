@@ -39,6 +39,21 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
     return COSMETIC_ITEMS.find((c) => c.category === 'ship') || COSMETIC_ITEMS[0];
   });
   const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
+  const [longPressItem, setLongPressItem] = useState<string | null>(null);
+  const longPressTimerRef = useRef<any>(null);
+
+  const handleTouchStart = (itemId: string) => {
+    longPressTimerRef.current = setTimeout(() => {
+      setLongPressItem(itemId);
+      triggerHaptic('medium');
+    }, 400);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+  };
 
   const stardustCountRef = useRef<HTMLSpanElement>(null);
   const prevStardustRef = useRef<number>(profile.stardust);
@@ -360,10 +375,18 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                     key={item.id}
                     variant={selected ? 'glow' : 'glass'}
                     onClick={() => {
-                      audioManager.playNavHover();
-                      setSelectedPreviewItem(item);
+                      if (longPressItem === item.id) {
+                        setLongPressItem(null);
+                      } else {
+                        audioManager.playNavHover();
+                        setSelectedPreviewItem(item);
+                      }
                     }}
-                    className={`p-3 cursor-pointer flex flex-col items-center gap-2 border text-center transition-all ${
+                    onTouchStart={() => !unlocked && handleTouchStart(item.id)}
+                    onTouchEnd={handleTouchEnd}
+                    onMouseDown={() => !unlocked && handleTouchStart(item.id)}
+                    onMouseUp={handleTouchEnd}
+                    className={`p-3 cursor-pointer flex flex-col items-center gap-2 border text-center transition-all relative group ${
                       selected ? 'border-[#00f5d4] shadow-[0_0_15px_rgba(0,245,212,0.3)]' : 'border-white/10'
                     }`}
                   >
@@ -376,9 +399,17 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                         </span>
                       )}
                       {!unlocked && (
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                          <Lock className="w-4 h-4 text-gray-400" />
-                        </div>
+                        <>
+                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                            <Lock className="w-4 h-4 text-gray-400" />
+                          </div>
+                          {/* Subtle Tooltip on Hover / Long-Press revealing unlock requirement */}
+                          <div className={`absolute -top-11 left-1/2 -translate-x-1/2 bg-[#120a2e]/95 border border-[#ffb703]/60 px-2.5 py-1 rounded-xl shadow-[0_0_15px_rgba(255,183,3,0.3)] text-[9px] font-mono text-[#ffb703] whitespace-nowrap z-40 pointer-events-none transition-all duration-200 ${
+                            longPressItem === item.id ? 'opacity-100 scale-105' : 'opacity-0 group-hover:opacity-100'
+                          }`}>
+                            {profile.lang === 'ru' ? `🔒 Требуется: ${item.priceStardust.toLocaleString()} Стардаста` : `🔒 Unlock: ${item.priceStardust.toLocaleString()} Stardust`}
+                          </div>
+                        </>
                       )}
                     </div>
 

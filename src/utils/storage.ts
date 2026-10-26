@@ -132,6 +132,7 @@ export const getInitialProfile = (telegramUser?: { id: number; first_name: strin
       'theme_classic_purple',
     ],
     unlockedAchievements: [],
+    claimedAchievements: [],
 
     // Social & Referrals
     referralCode: `ref_${userIdStr}`,

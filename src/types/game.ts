@@ -194,6 +194,7 @@ export interface PlayerProfile {
   unlockedBackdrops: string[];
   unlockedCosmetics: string[];
   unlockedAchievements: string[];
+  claimedAchievements: string[];
 
   referralCode: string;
   referredBy?: string;
