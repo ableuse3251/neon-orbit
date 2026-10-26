@@ -834,6 +834,15 @@ async function requireAuth(req, res, next) {
 }
 
 // src/shared/targetGenerator.ts
+function getEntityCategory(type) {
+  if (type === "golden_beacon" || type === "double_beacon" || type === "comet" || type === "magnet") {
+    return "collectible";
+  }
+  if (type === "mine" || type === "black_hole" || type === "decoy_satellite" || type === "emp_pulse") {
+    return "hazard";
+  }
+  return "neutral";
+}
 function isForbiddenTarget(type) {
   return type === "mine" || type === "black_hole" || type === "decoy_satellite" || type === "emp_pulse";
 }
@@ -1034,6 +1043,7 @@ function generateRoundTargets(seed, mode = "classic") {
       id: `t_${idCounter++}`,
       spawnTimeMs: Math.round(currentMs),
       type,
+      category: getEntityCategory(type),
       points,
       radius,
       speed: Number(speed.toFixed(2)),

@@ -9,6 +9,7 @@ export type TargetType =
   | 'boss_meteor'
   | 'decoy_satellite'
   | 'emp_pulse';
+export type EntityCategory = 'collectible' | 'hazard' | 'neutral';
 export type PowerupType = 'freeze' | 'supernova' | 'shield' | 'slow_time' | 'magnet_field';
 export type GameMode = 'classic' | 'blitz' | 'survival' | 'rhythm' | 'daily' | 'challenge';
 export type GameState = 'MENU' | 'PLAYING' | 'SUMMARY';
@@ -20,6 +21,7 @@ export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export interface Target {
   id: string;
   type: TargetType;
+  category?: EntityCategory;
   x: number;
   y: number;
   vx: number;

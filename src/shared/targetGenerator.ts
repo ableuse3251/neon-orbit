@@ -10,10 +10,23 @@ export type TargetType =
   | 'decoy_satellite'
   | 'emp_pulse';
 
+export type EntityCategory = 'collectible' | 'hazard' | 'neutral';
+
+export function getEntityCategory(type: TargetType): EntityCategory {
+  if (type === 'golden_beacon' || type === 'double_beacon' || type === 'comet' || type === 'magnet') {
+    return 'collectible';
+  }
+  if (type === 'mine' || type === 'black_hole' || type === 'decoy_satellite' || type === 'emp_pulse') {
+    return 'hazard';
+  }
+  return 'neutral';
+}
+
 export interface SharedTarget {
   id: string;
   spawnTimeMs: number; // Spawn timestamp in ms relative to round start
   type: TargetType;
+  category?: EntityCategory;
   points: number;
   radius: number;
   speed: number;
@@ -305,6 +318,7 @@ export function generateRoundTargets(seed: string, mode: string = 'classic'): Sh
       id: `t_${idCounter++}`,
       spawnTimeMs: Math.round(currentMs),
       type,
+      category: getEntityCategory(type),
       points,
       radius,
       speed: Number(speed.toFixed(2)),

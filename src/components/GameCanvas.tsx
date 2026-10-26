@@ -6,6 +6,8 @@ import {
   SharedTarget,
   isForbiddenTarget,
   getComboMultiplier,
+  getEntityCategory,
+  EntityCategory,
 } from '../shared/targetGenerator';
 import { particlePool, floatingTextPool } from '../utils/pool';
 import { performanceManager } from '../utils/performance';
@@ -307,20 +309,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         const dy = touchY - targetPxY;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Generous touch hit radius for mobile/touch screens (minimum 48px radius)
+        // Generous touch hit radius for mobile/touch screens
         const hitRadius = Math.max(target.radius + 35, 48);
 
         if (dist <= hitRadius) {
           hitFound = true;
 
-          // 1. FORBIDDEN HAZARD OBJECTS (Mines, Black Holes, Decoy Satellites, EMP Pulses)
+          // 1. HAZARD CATEGORY (Mines, Black Holes, Decoy Satellites, EMP Pulses)
           if (isForbiddenTarget(target.type)) {
             state.targets.splice(i, 1);
             state.minesHit++;
             state.combo = 0;
             state.multiplier = 1;
 
-            // EXPLICIT TIME PENALTY FOR TAPPING HAZARDS: -3 SECONDS & -250 SCORE PENALTY!
+            // TIME PENALTY: -3 SECONDS & -250 SCORE PENALTY
             state.roundStartTime -= 3000;
             state.score = Math.max(0, state.score - 250);
 
@@ -426,7 +428,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             }
           }
 
-          // 3. STANDARD VALID TARGETS
+          // 3. COLLECTIBLE & NEUTRAL TARGETS
           state.targets.splice(i, 1);
           state.hits++;
           state.combo++;
@@ -501,7 +503,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       // MISS TAP (Tapping empty space)
       if (!hitFound) {
         state.misses++;
-        // Minor -25 score penalty and -1 combo step. NO TIME DEDUCTION ON SIMPLE MISS!
         state.score = Math.max(0, state.score - 25);
         state.combo = Math.max(0, state.combo - 1);
         state.multiplier = getComboMultiplier(state.combo);
@@ -563,7 +564,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     };
   }, [isPlaying, isPaused, onPauseChange]);
 
-  // Main Render Loop: Forward Hyper-Speed Warp Flight & Levitating Target Objects
+  // Main Render Loop: Forward Hyper-Speed Warp Flight & Categorized Physics Movement
   useEffect(() => {
     let animationFrameId: number;
     const canvas = canvasRef.current;
@@ -623,13 +624,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           state.targets.push({
             id: st.id,
             type: st.type,
+            category: st.category ?? getEntityCategory(st.type),
             x: st.xPct,
             y: st.yPct,
             vx: st.vxPct ?? 0,
             vy: st.vyPct ?? 0,
             radius: st.radius,
             rotation: 0,
-            vRot: (Math.random() - 0.5) * 2,
+            vRot: (Math.random() - 0.5) * 2.5,
             points: st.points,
             maxHp: st.maxHp || 1,
             hp: st.maxHp || 1,
@@ -643,28 +645,36 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           nextTargetIndexRef.current++;
         }
 
-        // Velocity-Based Physics & Levitation Drift Loop
+        // CATEGORY-BASED MOVEMENT PATTERNS
         for (let i = state.targets.length - 1; i >= 0; i--) {
           const target = state.targets[i];
+          const category = target.category ?? getEntityCategory(target.type);
 
-          // 1. Angular Rotation Update
           target.rotation += target.vRot * deltaTime;
 
-          // 2. Cosmic Micro-Gravity Forces
-          const driftFx = Math.sin(currentTime * 0.0015 + target.pulsePhase) * 1.8;
-          const driftFy = Math.cos(currentTime * 0.0012 + target.pulsePhase) * 1.8;
-          target.vx += driftFx * deltaTime;
-          target.vy += driftFy * deltaTime;
+          if (category === 'collectible') {
+            // Pattern 1: Curved Orbital Wave Drift (Sine / Cosine Wave Float)
+            const waveX = Math.cos(currentTime * 0.003 + target.pulsePhase) * 14.0;
+            const waveY = Math.sin(currentTime * 0.003 + target.pulsePhase) * 12.0;
+            target.x += (target.vx + waveX) * deltaTime;
+            target.y += (target.vy + waveY) * deltaTime;
+          } else if (category === 'hazard') {
+            // Pattern 2: Erratic Zig-Zag Impulse Shift
+            if (Math.random() < 0.03) {
+              target.vx += (Math.random() - 0.5) * 14.0;
+              target.vy += (Math.random() - 0.5) * 14.0;
+            }
+            target.vx *= 0.992;
+            target.vy *= 0.992;
+            target.x += target.vx * deltaTime;
+            target.y += target.vy * deltaTime;
+          } else {
+            // Pattern 3: Neutral Smooth Inertia Drift
+            target.x += target.vx * deltaTime;
+            target.y += target.vy * deltaTime;
+          }
 
-          // Terminal Velocity Dampening
-          target.vx *= 0.998;
-          target.vy *= 0.998;
-
-          // Position Update
-          target.x += target.vx * deltaTime;
-          target.y += target.vy * deltaTime;
-
-          // 3. Elastic Edge Bounce Physics with Spin Impulse
+          // Elastic Edge Bounce Physics
           const minX = 10, maxX = 90, minY = 14, maxY = 78;
           if (target.x < minX) {
             target.x = minX;
@@ -811,10 +821,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       ctx.globalAlpha = 1.0;
 
-      // 3. Render Active Target Objects
+      // 3. RENDER ACTIVE TARGET OBJECTS WITH DISTINCT CATEGORY VISUALS
       const elapsedMs = currentTime - state.roundStartTime;
       for (let i = state.targets.length - 1; i >= 0; i--) {
         const target = state.targets[i];
+        const category = target.category ?? getEntityCategory(target.type);
         const targetPxX = (target.x / 100) * width;
         const targetPxY = (target.y / 100) * height;
 
@@ -827,189 +838,142 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.rotate(target.rotation);
         ctx.scale(targetScale, targetScale);
 
-        if (target.type === 'mine') {
-          // Forbidden Crimson Hazard Mine
-          ctx.fillStyle = '#FF0054';
+        // CATEGORY VISUAL ASSET RENDERING
+        if (category === 'collectible') {
+          // --- COLLECTIBLE CATEGORY: Glowing Neon Crystals & Beacons ---
+          const pulse = Math.sin(currentTime * 0.01 + target.pulsePhase) * 4;
+
+          // Outer glowing halo
+          ctx.fillStyle = target.color;
+          if (perfConfig.enableGlowBlur) {
+            ctx.shadowColor = target.color;
+            ctx.shadowBlur = perfConfig.glowBlurRadius * 1.5;
+          }
+
+          ctx.beginPath();
+          ctx.arc(0, 0, target.radius + pulse, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // Inner rotating crystal starburst
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.moveTo(0, -target.radius * 0.7);
+          ctx.lineTo(target.radius * 0.5, 0);
+          ctx.lineTo(0, target.radius * 0.7);
+          ctx.lineTo(-target.radius * 0.5, 0);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, target.radius * 1.25, 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (category === 'hazard') {
+          // --- HAZARD CATEGORY: Spiked Crimson Mines, Black Holes & Decoys ---
+          const pulse = Math.sin(currentTime * 0.015) * 6;
+
+          ctx.fillStyle = target.color;
           ctx.strokeStyle = '#FFFFFF';
           ctx.lineWidth = 2.5;
 
-          ctx.beginPath();
-          const spikes = 8;
-          for (let s = 0; s < spikes * 2; s++) {
-            const angle = (Math.PI / spikes) * s;
-            const r = s % 2 === 0 ? target.radius * 1.15 : target.radius * 0.65;
-            const x = Math.cos(angle) * r;
-            const y = Math.sin(angle) * r;
-            if (s === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-          }
-          ctx.closePath();
-          ctx.fill();
-          ctx.stroke();
+          if (target.type === 'black_hole') {
+            ctx.fillStyle = '#0B071E';
+            ctx.strokeStyle = '#7000FF';
+            ctx.beginPath();
+            ctx.arc(0, 0, target.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
 
-          // Flashing Warning Pulse Ring
-          const pulse = Math.sin(currentTime * 0.015) * 6;
+            ctx.strokeStyle = '#FF0054';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, target.radius * 0.6, 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (target.type === 'decoy_satellite') {
+            ctx.fillStyle = '#FF3300';
+            ctx.fillRect(-18, -12, 36, 24);
+            ctx.strokeRect(-18, -12, 36, 24);
+            ctx.fillStyle = '#1D3557';
+            ctx.fillRect(-34, -6, 14, 12);
+            ctx.fillRect(20, -6, 14, 12);
+          } else {
+            // Spiked Mine or EMP Pulse
+            ctx.beginPath();
+            const spikes = 8;
+            for (let s = 0; s < spikes * 2; s++) {
+              const angle = (Math.PI / spikes) * s;
+              const r = s % 2 === 0 ? target.radius * 1.15 : target.radius * 0.65;
+              const x = Math.cos(angle) * r;
+              const y = Math.sin(angle) * r;
+              if (s === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          }
+
+          // Flashing Crimson Hazard Pulse Ring
           ctx.strokeStyle = '#FF0054';
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.arc(0, 0, target.radius + 8 + pulse, 0, Math.PI * 2);
           ctx.stroke();
-        } else if (target.type === 'black_hole') {
-          // Forbidden Black Hole
-          ctx.fillStyle = '#0B071E';
-          ctx.strokeStyle = '#7000FF';
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.arc(0, 0, target.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.strokeStyle = '#FF0054';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(0, 0, target.radius * 0.6, 0, Math.PI * 2);
-          ctx.stroke();
-        } else if (target.type === 'decoy_satellite') {
-          // Forbidden Decoy Satellite
-          ctx.fillStyle = '#FF3300';
-          ctx.strokeStyle = '#FFD700';
-          ctx.lineWidth = 2;
-
-          ctx.fillRect(-18, -12, 36, 24);
-          ctx.strokeRect(-18, -12, 36, 24);
-
-          // Solar wings
-          ctx.fillStyle = '#1D3557';
-          ctx.fillRect(-34, -6, 14, 12);
-          ctx.fillRect(20, -6, 14, 12);
-
-          // Warning hazard cross
-          ctx.strokeStyle = '#FFFFFF';
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.moveTo(-10, -8);
-          ctx.lineTo(10, 8);
-          ctx.moveTo(10, -8);
-          ctx.lineTo(-10, 8);
-          ctx.stroke();
-        } else if (target.type === 'emp_pulse') {
-          // Forbidden EMP Pulse
-          ctx.fillStyle = '#FF007F';
-          ctx.strokeStyle = '#FFB703';
-          ctx.lineWidth = 2;
-
-          ctx.beginPath();
-          ctx.arc(0, 0, target.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.fillStyle = '#FFFFFF';
-          ctx.font = 'bold 16px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('⚡', 0, 0);
-        } else if (target.type === 'golden_beacon') {
-          ctx.fillStyle = '#FFB703';
-          if (perfConfig.enableGlowBlur) {
-            ctx.shadowColor = '#FFB703';
-            ctx.shadowBlur = perfConfig.glowBlurRadius * 1.5;
-          }
-
-          ctx.beginPath();
-          ctx.arc(0, 0, target.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.shadowBlur = 0;
-          ctx.strokeStyle = '#FFFFFF';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        } else if (target.type === 'double_beacon') {
-          ctx.fillStyle = '#8338EC';
-          if (perfConfig.enableGlowBlur) {
-            ctx.shadowColor = '#8338EC';
-            ctx.shadowBlur = perfConfig.glowBlurRadius * 1.5;
-          }
-
-          ctx.beginPath();
-          ctx.arc(0, 0, target.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.shadowBlur = 0;
-
-          ctx.strokeStyle = '#00F5D4';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(0, 0, target.radius * 1.25, 0, Math.PI * 2);
-          ctx.stroke();
-        } else if (target.type === 'comet') {
-          ctx.fillStyle = '#00F5D4';
-          if (perfConfig.enableGlowBlur) {
-            ctx.shadowColor = '#00F5D4';
-            ctx.shadowBlur = perfConfig.glowBlurRadius;
-          }
-
-          ctx.beginPath();
-          ctx.arc(0, 0, target.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.shadowBlur = 0;
-        } else if (target.type === 'magnet') {
-          ctx.fillStyle = '#3A86FF';
-          if (perfConfig.enableGlowBlur) {
-            ctx.shadowColor = '#3A86FF';
-            ctx.shadowBlur = perfConfig.glowBlurRadius;
-          }
-
-          ctx.beginPath();
-          ctx.arc(0, 0, target.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.shadowBlur = 0;
-
-          ctx.strokeStyle = '#FFFFFF';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(0, 0, target.radius * 0.7, 0, Math.PI);
-          ctx.stroke();
-        } else if (target.type === 'boss_meteor') {
-          ctx.fillStyle = '#FB8500';
-          if (perfConfig.enableGlowBlur) {
-            ctx.shadowColor = '#FB8500';
-            ctx.shadowBlur = perfConfig.glowBlurRadius * 2;
-          }
-
-          ctx.beginPath();
-          ctx.arc(0, 0, target.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.shadowBlur = 0;
-          ctx.strokeStyle = '#FF0054';
-          ctx.lineWidth = 3;
-          ctx.stroke();
-
-          // HP indicators above boss
-          const maxHp = target.maxHp || 3;
-          const currentHp = target.hp;
-          const pipWidth = 8;
-          const startX = -((maxHp * (pipWidth + 3)) / 2);
-          for (let h = 0; h < maxHp; h++) {
-            ctx.fillStyle = h < currentHp ? '#00F5D4' : '#444';
-            ctx.fillRect(startX + h * (pipWidth + 3), -target.radius - 12, pipWidth, 4);
-          }
         } else {
-          // Standard asteroid
-          ctx.fillStyle = target.color || '#9D4EDD';
-          ctx.strokeStyle = '#222';
-          ctx.lineWidth = 2;
+          // --- NEUTRAL CATEGORY: Cratered Asteroids & Boss Meteors ---
+          if (target.type === 'boss_meteor') {
+            ctx.fillStyle = '#FB8500';
+            if (perfConfig.enableGlowBlur) {
+              ctx.shadowColor = '#FB8500';
+              ctx.shadowBlur = perfConfig.glowBlurRadius * 2;
+            }
 
-          ctx.beginPath();
-          const pointsCount = 6;
-          for (let p = 0; p < pointsCount; p++) {
-            const angle = (Math.PI * 2 * p) / pointsCount;
-            const r = target.radius * (0.8 + Math.sin(p * 3) * 0.2);
-            const x = Math.cos(angle) * r;
-            const y = Math.sin(angle) * r;
-            if (p === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
+            ctx.beginPath();
+            ctx.arc(0, 0, target.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#FF0054';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // HP Bar
+            const maxHp = target.maxHp || 3;
+            const currentHp = target.hp;
+            const pipWidth = 8;
+            const startX = -((maxHp * (pipWidth + 3)) / 2);
+            for (let h = 0; h < maxHp; h++) {
+              ctx.fillStyle = h < currentHp ? '#00F5D4' : '#444';
+              ctx.fillRect(startX + h * (pipWidth + 3), -target.radius - 12, pipWidth, 4);
+            }
+          } else {
+            // Faceted Meteorite Asteroid with Craters
+            ctx.fillStyle = target.color || '#9D4EDD';
+            ctx.strokeStyle = '#222222';
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            const pointsCount = 7;
+            for (let p = 0; p < pointsCount; p++) {
+              const angle = (Math.PI * 2 * p) / pointsCount;
+              const r = target.radius * (0.82 + Math.sin(p * 2.5) * 0.18);
+              const x = Math.cos(angle) * r;
+              const y = Math.sin(angle) * r;
+              if (p === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Internal Crater Details
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.beginPath();
+            ctx.arc(-target.radius * 0.3, -target.radius * 0.2, target.radius * 0.25, 0, Math.PI * 2);
+            ctx.arc(target.radius * 0.3, target.radius * 0.3, target.radius * 0.2, 0, Math.PI * 2);
+            ctx.fill();
           }
-          ctx.closePath();
-          ctx.fill();
-          ctx.stroke();
         }
 
         ctx.restore();
