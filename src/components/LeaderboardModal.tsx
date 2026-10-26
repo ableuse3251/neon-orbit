@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, Trophy, Calendar, Users, RefreshCw, Loader2, EyeOff } from 'lucide-react';
+import { motion } from 'motion/react';
 import { PlayerProfile } from '../types/game';
 import { getTranslation } from '../utils/i18n';
 import { RankShield3D } from './ui/Icons';
@@ -89,8 +90,17 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-mono-tech select-none">
-      <div className="relative w-full max-w-md bg-[#120a2e]/95 border-2 border-[#9d4edd] rounded-2xl p-4 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-3.5 text-white max-h-[94vh] sm:max-h-[88vh]">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md font-mono-tech select-none"
+    >
+      <motion.div
+        initial={{ scale: 0.93, opacity: 0, y: 14 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        transition={{ type: 'spring', damping: 24, stiffness: 320 }}
+        className="relative w-full max-w-md bg-[#120a2e]/95 border-2 border-[#9d4edd] rounded-2xl p-4 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-3.5 text-white max-h-[94vh] sm:max-h-[88vh]"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#9d4edd]/40 pb-2.5 shrink-0">
           <div className="flex items-center gap-2">
@@ -99,49 +109,45 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
               {t.rankingsTitle}
             </h2>
           </div>
-          <button
+          <motion.button
+            whileHover={{ scale: 1.15, rotate: 90 }}
+            whileTap={{ scale: 0.88 }}
             onClick={onClose}
             className="p-1 rounded-lg bg-[#210b42] text-gray-400 hover:text-white border border-[#9d4edd]/30 transition-colors"
           >
             <X className="w-5 h-5" />
-          </button>
+          </motion.button>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs with Motion Sliding Indicator */}
         <div className="flex items-center gap-1 bg-[#0b071e] p-1 rounded-xl border border-[#9d4edd]/30 shrink-0">
-          <button
-            onClick={() => handleTabChange('daily')}
-            className={`flex-1 py-1.5 px-2 rounded-lg font-pixel text-[9px] sm:text-[10px] flex items-center justify-center gap-1 transition-all ${
-              tab === 'daily'
-                ? 'bg-[#00f5d4] text-[#0b071e] font-bold shadow-[0_0_10px_#00f5d4]'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            <Calendar className="w-3 h-3" />
-            <span>{t.dailyTab}</span>
-          </button>
-          <button
-            onClick={() => handleTabChange('global')}
-            className={`flex-1 py-1.5 px-2 rounded-lg font-pixel text-[9px] sm:text-[10px] flex items-center justify-center gap-1 transition-all ${
-              tab === 'global'
-                ? 'bg-[#00f5d4] text-[#0b071e] font-bold shadow-[0_0_10px_#00f5d4]'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            <Trophy className="w-3 h-3" />
-            <span>{t.globalTab}</span>
-          </button>
-          <button
-            onClick={() => handleTabChange('friends')}
-            className={`flex-1 py-1.5 px-2 rounded-lg font-pixel text-[9px] sm:text-[10px] flex items-center justify-center gap-1 transition-all ${
-              tab === 'friends'
-                ? 'bg-[#00f5d4] text-[#0b071e] font-bold shadow-[0_0_10px_#00f5d4]'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            <Users className="w-3 h-3" />
-            <span>{t.friendsTab}</span>
-          </button>
+          {[
+            { id: 'daily' as const, label: t.dailyTab, icon: <Calendar className="w-3 h-3" /> },
+            { id: 'global' as const, label: t.globalTab, icon: <Trophy className="w-3 h-3" /> },
+            { id: 'friends' as const, label: t.friendsTab, icon: <Users className="w-3 h-3" /> },
+          ].map((item) => (
+            <motion.button
+              key={item.id}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => handleTabChange(item.id)}
+              className={`relative flex-1 py-1.5 px-2 rounded-lg font-pixel text-[9px] sm:text-[10px] flex items-center justify-center gap-1 transition-colors z-10 ${
+                tab === item.id
+                  ? 'text-[#0b071e] font-bold'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              {tab === item.id && (
+                <motion.div
+                  layoutId="activeLeaderboardTabIndicator"
+                  className="absolute inset-0 bg-[#00f5d4] rounded-lg shadow-[0_0_12px_#00f5d4] -z-10"
+                  transition={{ type: 'spring', damping: 25, stiffness: 380 }}
+                />
+              )}
+              {item.icon}
+              <span>{item.label}</span>
+            </motion.button>
+          ))}
         </div>
 
         {/* Season Banner */}
@@ -164,13 +170,15 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           ) : error ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-2 py-8 text-center text-red-400 text-xs">
               <span>{error}</span>
-              <button
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => fetchLeaderboard(tab)}
                 className="mt-2 py-1.5 px-3 rounded-lg bg-[#9d4edd]/20 border border-[#9d4edd] text-[#00f5d4] font-pixel text-[10px] flex items-center gap-1 hover:bg-[#9d4edd]/40"
               >
                 <RefreshCw className="w-3 h-3" />
                 RETRY
-              </button>
+              </motion.button>
             </div>
           ) : !data || data.entries.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-2 py-10 text-center text-gray-400 text-xs px-4">
@@ -178,10 +186,14 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
               <span>{t.emptyLeaderboard}</span>
             </div>
           ) : (
-            data.entries.map((entry: LeaderboardEntry) => (
-              <div
+            data.entries.map((entry: LeaderboardEntry, idx: number) => (
+              <motion.div
                 key={entry.userId}
-                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(idx * 0.025, 0.4), duration: 0.2 }}
+                whileHover={{ scale: 1.01 }}
+                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-colors ${
                   entry.isCurrentUser || String(entry.userId) === String(currentUserId)
                     ? 'bg-[#00f5d4]/10 border-2 border-[#00f5d4] shadow-[0_0_15px_rgba(0,245,212,0.25)]'
                     : 'bg-[#0b071e]/90 border-[#9d4edd]/30 hover:border-[#9d4edd]/60'
@@ -214,7 +226,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                 <span className="font-pixel text-sm font-bold text-[#00f5d4] tabular-nums ml-2 shrink-0">
                   {entry.score.toLocaleString()}
                 </span>
-              </div>
+              </motion.div>
             ))
           )}
         </div>
@@ -222,7 +234,12 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
         {/* Current User Card if outside top 50 */}
         {!loading && data?.currentUser && !isUserInTopList && (
           <div className="pt-2 border-t border-[#9d4edd]/30">
-            <div className="flex items-center justify-between p-3 rounded-xl border-2 border-[#00f5d4] bg-[#00f5d4]/10 shadow-[0_0_12px_rgba(0,245,212,0.2)] text-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              className="flex items-center justify-between p-3 rounded-xl border-2 border-[#00f5d4] bg-[#00f5d4]/10 shadow-[0_0_12px_rgba(0,245,212,0.2)] text-xs"
+            >
               <div className="flex items-center gap-3 min-w-0">
                 <span className="w-7 h-7 rounded-lg bg-[#00f5d4] text-[#0b071e] font-pixel text-[11px] flex items-center justify-center font-bold shrink-0">
                   {data.currentUser.hideFromLeaderboard
@@ -251,10 +268,10 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
               <span className="font-pixel text-sm font-bold text-[#00f5d4] tabular-nums shrink-0 ml-2">
                 {(tab === 'daily' ? data.currentUser.score : Math.max(data.currentUser.score, profile?.highScore || 0)).toLocaleString()}
               </span>
-            </div>
+            </motion.div>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

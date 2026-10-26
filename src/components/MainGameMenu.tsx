@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Share2, Sparkles, Zap, Crosshair, ShieldAlert } from 'lucide-react';
+import { motion } from 'motion/react';
 import { animate, stagger } from 'animejs';
 import { PlayerProfile, LiveEventConfig } from '../types/game';
 import { getTranslation } from '../utils/i18n';
@@ -177,76 +178,91 @@ export const MainGameMenu: React.FC<MainGameMenuProps> = ({
           </div>
         )}
 
-        {/* PRIMARY LAUNCH BUTTON */}
-        <button
+        {/* PRIMARY LAUNCH BUTTON with Motion Gestures */}
+        <motion.button
           ref={launchBtnRef}
           type="button"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.96 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 25 }}
           onClick={() => {
             triggerHaptic('heavy');
             onStartRound(false, false);
           }}
-          className="relative w-full py-3.5 sm:py-4 bg-gradient-to-r from-[#00f5d4] via-[#38bdf8] to-[#00f5d4] text-[#050212] font-pixel text-xs sm:text-sm rounded-2xl font-black hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 shadow-[0_0_35px_rgba(0,245,212,0.7)] border-2 border-[#00f5d4] group overflow-hidden"
+          className="relative w-full py-3.5 sm:py-4 bg-gradient-to-r from-[#00f5d4] via-[#38bdf8] to-[#00f5d4] text-[#050212] font-pixel text-xs sm:text-sm rounded-2xl font-black hover:opacity-95 transition-all flex items-center justify-center gap-2.5 shadow-[0_0_35px_rgba(0,245,212,0.7)] border-2 border-[#00f5d4] group overflow-hidden"
         >
           {/* Shimmer Light Effect */}
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
           
           <OrbitRocketIcon size={24} color="#050212" glowColor="#00f5d4" className="group-hover:scale-125 group-hover:rotate-12 transition-transform duration-300" />
           <span className="tracking-wider uppercase font-extrabold">{t.startRound || 'СТАРТ РАУНДА'}</span>
-        </button>
+        </motion.button>
 
         {/* SECONDARY ACTION GRID / STACK */}
         <div className="grid grid-cols-2 gap-2">
           {/* Daily Challenge */}
-          <button
+          <motion.button
             type="button"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
             onClick={() => {
               triggerHaptic('medium');
               onStartRound(true, false);
             }}
-            className="py-2.5 px-2 bg-gradient-to-r from-[#210938] to-[#3a0852] border border-[#ff007f]/70 text-white font-pixel text-[9px] sm:text-[10px] rounded-xl hover:border-[#ff007f] hover:shadow-[0_0_20px_rgba(255,0,127,0.6)] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(255,0,127,0.3)]"
+            className="py-2.5 px-2 bg-gradient-to-r from-[#210938] to-[#3a0852] border border-[#ff007f]/70 text-white font-pixel text-[9px] sm:text-[10px] rounded-xl hover:border-[#ff007f] hover:shadow-[0_0_20px_rgba(255,0,127,0.6)] transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(255,0,127,0.3)]"
           >
             <DailyStreakIcon size={16} color="#ff007f" glowColor="#ff007f" />
             <span className="truncate">{t.dailyChallenge || 'ЕЖЕДНЕВНЫЙ ВЫЗОВ'}</span>
-          </button>
+          </motion.button>
 
           {/* Demo Mode */}
-          <button
+          <motion.button
             type="button"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
             onClick={() => {
               triggerHaptic('light');
               onStartRound(false, true);
             }}
-            className="py-2.5 px-2 bg-gradient-to-r from-[#120b2e] to-[#1c1042] border border-purple-500/50 text-purple-200 font-pixel text-[9px] sm:text-[10px] rounded-xl hover:border-purple-400 hover:bg-purple-950/80 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(168,85,247,0.25)]"
+            className="py-2.5 px-2 bg-gradient-to-r from-[#120b2e] to-[#1c1042] border border-purple-500/50 text-purple-200 font-pixel text-[9px] sm:text-[10px] rounded-xl hover:border-purple-400 hover:bg-purple-950/80 transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(168,85,247,0.25)]"
           >
             <span className="truncate">{profile.lang === 'ru' ? '🎮 ДЕМО-ТРЕНИРОВКА' : '🎮 DEMO PRACTICE'}</span>
-          </button>
+          </motion.button>
         </div>
 
         {/* Daily Quests Hub Button */}
-        <button
+        <motion.button
           type="button"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.96 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 20 }}
           onClick={() => {
             triggerHaptic('light');
             onOpenModal('dailyContent');
           }}
-          className="w-full py-2.5 bg-gradient-to-r from-[#071927] to-[#0d2a42] border border-cyan-500/60 text-cyan-300 font-pixel text-[9px] sm:text-[10px] rounded-xl hover:border-cyan-400 hover:bg-[#0d3454] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+          className="w-full py-2.5 bg-gradient-to-r from-[#071927] to-[#0d2a42] border border-cyan-500/60 text-cyan-300 font-pixel text-[9px] sm:text-[10px] rounded-xl hover:border-cyan-400 hover:bg-[#0d3454] transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
         >
           <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
           <span>{profile.lang === 'ru' ? 'ЕЖЕДНЕВНЫЕ КВЕСТЫ И НАГРАДЫ' : 'DAILY QUESTS & REWARDS'}</span>
-        </button>
+        </motion.button>
 
         {/* Viral Hub & Challenges Button */}
-        <button
+        <motion.button
           type="button"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.96 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 20 }}
           onClick={() => {
             triggerHaptic('light');
             onOpenModal('viral');
           }}
-          className="w-full py-2.5 bg-gradient-to-r from-[#290738] to-[#420a5c] border border-[#ff007f]/60 text-[#ff007f] font-pixel text-[9px] sm:text-[10px] rounded-xl hover:border-[#ff007f] hover:bg-[#520d73] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(255,0,127,0.3)]"
+          className="w-full py-2.5 bg-gradient-to-r from-[#290738] to-[#420a5c] border border-[#ff007f]/60 text-[#ff007f] font-pixel text-[9px] sm:text-[10px] rounded-xl hover:border-[#ff007f] hover:bg-[#520d73] transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(255,0,127,0.3)]"
         >
           <Share2 className="w-3.5 h-3.5 text-[#ff007f]" />
           <span>{profile.lang === 'ru' ? 'ВИРУСНЫЙ ШТАБ (ЦЕЛИ И ВЫЗОВЫ)' : 'VIRAL HUB & CHALLENGES'}</span>
-        </button>
+        </motion.button>
       </div>
 
     </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Check, Gift, Clock, ShieldCheck } from 'lucide-react';
+import { motion } from 'motion/react';
 import { PlayerProfile } from '../types/game';
 import { triggerHaptic } from '../utils/telegram';
 import { getTranslation } from '../utils/i18n';
@@ -86,8 +87,17 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-mono-tech select-none">
-      <div className="relative w-full max-w-md bg-[#120a2e]/95 border-2 border-[#9d4edd] rounded-2xl p-4 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-3.5 text-white max-h-[94vh] sm:max-h-[88vh]">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md font-mono-tech select-none"
+    >
+      <motion.div
+        initial={{ scale: 0.93, opacity: 0, y: 14 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        transition={{ type: 'spring', damping: 24, stiffness: 320 }}
+        className="relative w-full max-w-md bg-[#120a2e]/95 border-2 border-[#9d4edd] rounded-2xl p-4 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-3.5 text-white max-h-[94vh] sm:max-h-[88vh]"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#9d4edd]/40 pb-3 shrink-0">
           <div className="flex items-center gap-2.5">
@@ -103,12 +113,14 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
               </span>
             </div>
           </div>
-          <button
+          <motion.button
+            whileHover={{ scale: 1.15, rotate: 90 }}
+            whileTap={{ scale: 0.88 }}
             onClick={onClose}
             className="p-1.5 rounded-lg bg-[#210b42] text-gray-400 hover:text-white border border-[#9d4edd]/30 transition-colors"
           >
             <X className="w-4 h-4" />
-          </button>
+          </motion.button>
         </div>
 
         {/* Status Banner */}
@@ -139,8 +151,10 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
         {/* 30-Day Rewards Grid */}
         <div className="flex-1 overflow-y-auto grid grid-cols-5 gap-2 pr-1 max-h-[46vh] scrollbar-thin scrollbar-thumb-[#9d4edd]/40">
           {days.map((item) => (
-            <div
+            <motion.div
               key={item.day}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               className={`relative p-2 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${
                 item.isClaimed
                   ? 'bg-emerald-500/15 border-emerald-500/50 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
@@ -183,7 +197,7 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
               <span className={`font-pixel text-[9px] font-bold ${item.isClaimed ? 'text-emerald-300' : item.isCurrentTarget ? 'text-[#00f5d4]' : 'text-[#ffb703]'}`}>
                 +{item.stardust}
               </span>
-            </div>
+            </motion.div>
           ))}
         </div>
 
@@ -210,7 +224,9 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
             </div>
           ) : (
             <div className="space-y-1.5">
-              <button
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={handleClaim}
                 disabled={isClaiming || isClaimedToday}
                 className={`w-full py-3.5 bg-gradient-to-r from-[#00f5d4] via-[#00f5d4] to-[#00c4a7] text-[#0b071e] font-pixel text-xs rounded-xl font-black hover:brightness-110 shadow-[0_0_20px_rgba(0,245,212,0.4)] active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${
@@ -223,14 +239,14 @@ export const DailyStreakModal: React.FC<DailyStreakModalProps> = ({
                     ? (isRu ? 'СОХРАНЕНИЕ...' : 'SAVING...')
                     : (isRu ? `ЗАБРАТЬ НАГРАДУ (+${todayReward} 🌟)` : `CLAIM TODAY'S REWARD (+${todayReward} 🌟)`)}
                 </span>
-              </button>
+              </motion.button>
               <div className="text-center text-[10px] text-gray-400 font-mono">
                 {isRu ? `День ${targetDay} из 30 • Серия продолжается!` : `Day ${targetDay} of 30 • Streak ongoing!`}
               </div>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

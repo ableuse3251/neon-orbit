@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Check, Lock, Sparkles, Shield, Package, Sparkle } from 'lucide-react';
+import { motion } from 'motion/react';
+import { animate } from 'animejs';
 import { PlayerProfile, CosmeticCategory, Rarity, CosmeticItem } from '../types/game';
 import { COSMETIC_ITEMS, COSMETIC_COLLECTIONS, CosmeticCollection } from '../shared/cosmetics';
 import { triggerHaptic } from '../utils/telegram';
@@ -36,6 +38,31 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
     return COSMETIC_ITEMS.find((c) => c.category === 'ship') || COSMETIC_ITEMS[0];
   });
   const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
+
+  const stardustCountRef = useRef<HTMLSpanElement>(null);
+  const prevStardustRef = useRef<number>(profile.stardust);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !stardustCountRef.current) return;
+    const startVal = prevStardustRef.current;
+    const endVal = profile.stardust;
+    prevStardustRef.current = endVal;
+    if (startVal === endVal) {
+      stardustCountRef.current.textContent = String(endVal);
+      return;
+    }
+    const valObj = { val: startVal };
+    animate(valObj, {
+      val: endVal,
+      duration: 600,
+      ease: 'outExpo',
+      onUpdate: () => {
+        if (stardustCountRef.current) {
+          stardustCountRef.current.textContent = Math.round(valObj.val).toLocaleString();
+        }
+      },
+    });
+  }, [profile.stardust]);
 
   const categories: Array<{
     id: CosmeticCategory;
@@ -192,8 +219,17 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
   const itemsInCategory = COSMETIC_ITEMS.filter((i) => i.category === activeCategory);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-mono-tech select-none">
-      <div className="relative w-full max-w-lg bg-[#120a2e]/95 border-2 border-[#9d4edd] rounded-2xl p-3.5 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-2.5 sm:gap-3 text-white max-h-[94vh] sm:max-h-[92vh]">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md font-mono-tech select-none"
+    >
+      <motion.div
+        initial={{ scale: 0.93, opacity: 0, y: 14 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        transition={{ type: 'spring', damping: 24, stiffness: 320 }}
+        className="relative w-full max-w-lg bg-[#120a2e]/95 border-2 border-[#9d4edd] rounded-2xl p-3.5 sm:p-5 shadow-[0_0_35px_rgba(157,78,221,0.35)] flex flex-col gap-2.5 sm:gap-3 text-white max-h-[94vh] sm:max-h-[92vh]"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#9d4edd]/40 pb-2 sm:pb-2.5">
           <div className="flex items-center gap-2">
@@ -203,47 +239,72 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
             </h2>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-[#210b42] px-3 py-1 rounded-full border border-[#ffb703]/50 text-[#ffb703] shadow-[0_0_10px_rgba(255,183,3,0.3)]">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="flex items-center gap-1.5 bg-[#210b42] px-3 py-1 rounded-full border border-[#ffb703]/50 text-[#ffb703] shadow-[0_0_10px_rgba(255,183,3,0.3)]"
+            >
               <StardustCrystalIcon size={14} />
-              <span className="font-pixel text-xs font-bold">{profile.stardust}</span>
-            </div>
-            <button
+              <span ref={stardustCountRef} className="font-pixel text-xs font-bold">
+                {profile.stardust}
+              </span>
+            </motion.div>
+            <motion.button
+              whileHover={{ scale: 1.15, rotate: 90 }}
+              whileTap={{ scale: 0.88 }}
               onClick={onClose}
               className="p-1 text-gray-400 hover:text-white transition-colors"
             >
               <X className="w-5 h-5" />
-            </button>
+            </motion.button>
           </div>
         </div>
 
         {/* Tab Switcher: Individual Items vs Collections / Sets */}
         <div className="flex gap-2 bg-[#0b071e] p-1 rounded-xl border border-[#9d4edd]/30 shrink-0">
-          <button
+          <motion.button
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => {
               triggerHaptic('selection');
               setActiveTab('shop');
             }}
-            className={`flex-1 py-1.5 rounded-lg font-pixel text-[10px] transition-all flex items-center justify-center gap-1.5 ${
+            className={`relative flex-1 py-1.5 rounded-lg font-pixel text-[10px] transition-colors flex items-center justify-center gap-1.5 z-10 ${
               activeTab === 'shop'
-                ? 'bg-[#9d4edd] text-white font-bold shadow-[0_0_10px_#9d4edd]'
+                ? 'text-white font-bold'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
+            {activeTab === 'shop' && (
+              <motion.div
+                layoutId="activeShopTabIndicator"
+                className="absolute inset-0 bg-[#9d4edd] rounded-lg shadow-[0_0_12px_#9d4edd] -z-10"
+                transition={{ type: 'spring', damping: 25, stiffness: 380 }}
+              />
+            )}
             <Sparkle className="w-3.5 h-3.5" /> Individual Catalog (65+)
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => {
               triggerHaptic('selection');
               setActiveTab('collections');
             }}
-            className={`flex-1 py-1.5 rounded-lg font-pixel text-[10px] transition-all flex items-center justify-center gap-1.5 ${
+            className={`relative flex-1 py-1.5 rounded-lg font-pixel text-[10px] transition-colors flex items-center justify-center gap-1.5 z-10 ${
               activeTab === 'collections'
-                ? 'bg-[#ff007f] text-white font-bold shadow-[0_0_10px_#ff007f]'
+                ? 'text-white font-bold'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
+            {activeTab === 'collections' && (
+              <motion.div
+                layoutId="activeShopTabIndicator"
+                className="absolute inset-0 bg-[#ff007f] rounded-lg shadow-[0_0_12px_#ff007f] -z-10"
+                transition={{ type: 'spring', damping: 25, stiffness: 380 }}
+              />
+            )}
             <Package className="w-3.5 h-3.5" /> Collections & Bundles (-20%)
-          </button>
+          </motion.button>
         </div>
 
         {activeTab === 'shop' ? (
@@ -251,25 +312,34 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
             {/* 7 Category Tabs with Custom Modern Vector Icons */}
             <div className="grid grid-cols-7 gap-1 bg-[#0b071e] p-1 rounded-xl border border-[#9d4edd]/30 shrink-0 overflow-x-auto">
               {categories.map((cat) => (
-                <button
+                <motion.button
                   key={cat.id}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.94 }}
                   onClick={() => {
                     triggerHaptic('selection');
                     setActiveCategory(cat.id);
                     const first = COSMETIC_ITEMS.find((i) => i.category === cat.id);
                     if (first) setSelectedPreviewItem(first);
                   }}
-                  className={`py-1.5 rounded-lg flex flex-col items-center justify-center gap-1 text-[8px] font-pixel transition-all ${
+                  className={`relative py-1.5 rounded-lg flex flex-col items-center justify-center gap-1 text-[8px] font-pixel transition-colors z-10 ${
                     activeCategory === cat.id
-                      ? 'bg-[#00f5d4] text-[#0b071e] font-bold shadow-[0_0_12px_#00f5d4]'
+                      ? 'text-[#0b071e] font-bold'
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
+                  {activeCategory === cat.id && (
+                    <motion.div
+                      layoutId="activeCategoryPill"
+                      className="absolute inset-0 bg-[#00f5d4] rounded-lg shadow-[0_0_12px_#00f5d4] -z-10"
+                      transition={{ type: 'spring', damping: 25, stiffness: 380 }}
+                    />
+                  )}
                   {cat.icon}
                   <span className="hidden sm:inline">
                     {profile.lang === 'ru' ? cat.labelRu : cat.labelEn}
                   </span>
-                </button>
+                </motion.button>
               ))}
             </div>
 
@@ -328,8 +398,10 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                 const name = profile.lang === 'ru' ? item.nameRu : item.nameEn;
 
                 return (
-                  <div
+                  <motion.div
                     key={item.id}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => {
                       triggerHaptic('selection');
                       setSelectedPreviewItem(item);
@@ -368,7 +440,9 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                           <Check className="w-3 h-3" /> {t.equippedBadge}
                         </span>
                       ) : unlocked ? (
-                        <button
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.95 }}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleEquip(item);
@@ -376,9 +450,11 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                           className="w-full py-1 bg-[#210b42] border border-[#9d4edd] hover:border-[#00f5d4] text-white font-pixel text-[9px] rounded transition-colors"
                         >
                           {t.equipBtn}
-                        </button>
+                        </motion.button>
                       ) : (
-                        <button
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.95 }}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleBuy(item);
@@ -391,10 +467,10 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                         >
                           <Lock className="w-2.5 h-2.5" />
                           <span>{item.priceStardust} Dust</span>
-                        </button>
+                        </motion.button>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
@@ -413,8 +489,9 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
               const isFullyUnlocked = missingIds.length === 0;
 
               return (
-                <div
+                <motion.div
                   key={coll.id}
+                  whileHover={{ scale: 1.01 }}
                   className="p-3.5 rounded-xl border border-[#9d4edd]/40 bg-[#0b071e] flex flex-col gap-2.5 shadow-md"
                   style={{ borderColor: coll.previewColor }}
                 >
@@ -441,7 +518,9 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                         <Check className="w-3.5 h-3.5" /> Collection Fully Owned
                       </span>
                     ) : (
-                      <button
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.96 }}
                         onClick={() => handleBuyCollection(coll)}
                         disabled={profile.stardust < discountedPrice}
                         className={`w-full py-1.5 font-pixel text-[10px] font-bold rounded flex items-center justify-center gap-1 ${
@@ -452,10 +531,10 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
                       >
                         <Sparkles className="w-3.5 h-3.5" />
                         <span>Buy Missing ({discountedPrice} Stardust)</span>
-                      </button>
+                      </motion.button>
                     )}
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
@@ -466,7 +545,7 @@ export const CosmeticsShopModal: React.FC<CosmeticsShopModalProps> = ({
           <Shield className="w-3.5 h-3.5 text-[#00f5d4]" />
           <span>Cosmetics only. Zero impact on score or rankings!</span>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

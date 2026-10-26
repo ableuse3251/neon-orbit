@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { PlayerProfile } from '../types/game';
 import { ModalType } from '../store/modalStore';
 import { triggerHaptic } from '../utils/telegram';
@@ -90,28 +91,40 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           const isActive = activeModal === tab.id;
 
           return (
-            <button
+            <motion.button
               key={tab.id ?? 'orbit'}
               type="button"
+              whileTap={{ scale: 0.92 }}
               onClick={() => {
                 triggerHaptic('selection');
                 onSelectTab(tab.id);
               }}
-              className={`relative flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 active:scale-95 group ${
+              className={`relative flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-colors group ${
                 isActive
-                  ? 'bg-gradient-to-b from-[#1b0c3f] to-[#12072e] text-[#00f5d4] shadow-[0_0_20px_rgba(0,245,212,0.3)] border border-[#00f5d4]/70'
-                  : 'text-gray-400 hover:text-white border border-transparent hover:bg-white/5'
+                  ? 'text-[#00f5d4]'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
+              {/* Motion Layout Active Background Indicator */}
+              {isActive && (
+                <motion.div
+                  layoutId="activeBottomNavPill"
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                  className="absolute inset-0 bg-gradient-to-b from-[#1b0c3f] to-[#12072e] rounded-2xl border border-[#00f5d4]/70 shadow-[0_0_20px_rgba(0,245,212,0.3)] z-0"
+                />
+              )}
+
               {/* Active Indicator Top Glow Line */}
               {isActive && (
-                <div
-                  className="absolute -top-[1px] left-1/4 right-1/4 h-[2px] rounded-full shadow-[0_0_8px_currentColor]"
+                <motion.div
+                  layoutId="activeBottomNavGlow"
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  className="absolute -top-[1px] left-1/4 right-1/4 h-[2px] rounded-full shadow-[0_0_8px_currentColor] z-10"
                   style={{ backgroundColor: tab.color, color: tab.color }}
                 />
               )}
 
-              <div className="relative flex items-center justify-center">
+              <div className="relative z-10 flex items-center justify-center">
                 <IconComponent
                   size={21}
                   color={isActive ? tab.color : '#8e8a9f'}
@@ -133,13 +146,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               </div>
 
               <span
-                className={`font-pixel text-[8px] sm:text-[9px] mt-1 tracking-tight truncate w-full text-center transition-all ${
+                className={`relative z-10 font-pixel text-[8px] sm:text-[9px] mt-1 tracking-tight truncate w-full text-center transition-all ${
                   isActive ? 'text-[#00f5d4] font-bold text-glow-cyan scale-105' : 'text-gray-400 group-hover:text-gray-200'
                 }`}
               >
                 {tab.label}
               </span>
-            </button>
+            </motion.button>
           );
         })}
       </div>
