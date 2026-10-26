@@ -2,7 +2,7 @@
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import rateLimit from "express-rate-limit";
 
 // server/config.ts
 import dotenv from "dotenv";
@@ -4756,16 +4756,6 @@ var token = config.botToken || process.env.TELEGRAM_BOT_TOKEN || "";
 var bot = new Bot(token || "111111111:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 bot.catch((err) => {
   const ctx = err.ctx;
-  const rawErr = err?.error;
-  const errStr = String(rawErr?.message || rawErr || err);
-  if (errStr.includes("401") || errStr.includes("Unauthorized")) {
-    logger.warn("Telegram Bot update error: Token unauthorized (401). Stopping bot polling.");
-    try {
-      bot.stop();
-    } catch {
-    }
-    return;
-  }
   logger.warn(`Telegram Bot error during update ${ctx?.update?.update_id || "unknown"}:`, err.error);
 });
 var APP_URL = (config.appUrl && !config.appUrl.includes("ais-dev-") && !config.appUrl.includes("localhost") ? config.appUrl : "") || "https://neon-orbit-omega.vercel.app";
@@ -6969,18 +6959,17 @@ function createApp() {
         } catch {
         }
       }
-      let rawIp = "";
       const forwarded = req.headers["x-forwarded-for"];
       if (typeof forwarded === "string" && forwarded.trim()) {
-        rawIp = forwarded.split(",")[0].trim();
-      } else if (typeof req.headers["x-real-ip"] === "string" && req.headers["x-real-ip"].trim()) {
-        rawIp = req.headers["x-real-ip"].trim();
-      } else {
-        rawIp = req.ip || "127.0.0.1";
+        const clientIp = forwarded.split(",")[0].trim();
+        if (clientIp) return `ip_${clientIp}`;
       }
-      return `ip_${ipKeyGenerator(rawIp)}`;
+      const realIp = req.headers["x-real-ip"];
+      if (typeof realIp === "string" && realIp.trim()) {
+        return `ip_${realIp.trim()}`;
+      }
+      return `ip_${req.ip || "client"}`;
     },
-    validate: false,
     message: { success: false, error: "Too many requests." },
     store: {
       init: () => {

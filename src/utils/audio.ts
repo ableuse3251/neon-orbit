@@ -125,11 +125,13 @@ class SoundEngine {
       this.htmlAudio.loop = true;
     }
 
-    if (!this.htmlAudio.src || !this.htmlAudio.src.endsWith(track.url)) {
+    const currentSrc = this.htmlAudio.src || '';
+    if (!currentSrc.includes(track.url)) {
       this.htmlAudio.src = track.url;
+      this.htmlAudio.load();
     }
 
-    this.htmlAudio.volume = Math.max(0, Math.min(1, this.volumeMusic * 0.7));
+    this.htmlAudio.volume = Math.max(0, Math.min(1, this.volumeMusic * 0.75));
 
     const playPromise = this.htmlAudio.play();
     if (playPromise !== undefined) {
@@ -302,13 +304,13 @@ class SoundEngine {
 
   public startMenuAmbient(_scene: MenuScene = 'orbit') {
     if (!this.musicEnabled) return;
-    if (!this.isMusicPlaying) {
+    if (!this.isMusicPlaying || (this.htmlAudio && this.htmlAudio.paused)) {
       this.startSynthwaveLoop(this.currentTrackIndex);
     }
   }
 
   public stopMenuAmbient() {
-    this.stopMusic();
+    // Intentionally keep music playing continuously across screens
   }
 
   public setMenuScene(scene: MenuScene | string) {

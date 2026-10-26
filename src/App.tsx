@@ -257,36 +257,36 @@ export default function App() {
     flushPendingRoundsQueue();
   }, [profile.settings]);
 
-  // Procedural Synthwave Menu Ambient Soundscape Lifecycle
+  // Synthwave Background Music Lifecycle
   useEffect(() => {
-    if (gameState === 'MENU') {
-      const scene = activeTab || 'orbit';
-      if (profile.settings.music) {
-        audioManager.startMenuAmbient(scene);
-      }
+    if (profile.settings.music) {
+      audioManager.startSynthwaveLoop();
     } else {
-      audioManager.stopMenuAmbient();
+      audioManager.stopMusic();
     }
-  }, [gameState, activeTab, profile.settings.music]);
+  }, [gameState, profile.settings.music]);
 
-  // Unlock AudioContext and launch ambient soundscape on first user touch/click
+  // Unlock AudioContext and ensure background MP3 playback starts on first user touch/click
   useEffect(() => {
     const handleFirstInteraction = () => {
-      if (gameState === 'MENU' && profile.settings.music) {
-        audioManager.startMenuAmbient(activeTab || 'orbit');
+      audioManager.unlockAudio();
+      if (profile.settings.music) {
+        audioManager.startSynthwaveLoop();
       }
-      window.removeEventListener('pointerdown', handleFirstInteraction);
-      window.removeEventListener('keydown', handleFirstInteraction);
     };
 
     window.addEventListener('pointerdown', handleFirstInteraction, { once: true });
+    window.addEventListener('click', handleFirstInteraction, { once: true });
+    window.addEventListener('touchstart', handleFirstInteraction, { once: true });
     window.addEventListener('keydown', handleFirstInteraction, { once: true });
 
     return () => {
       window.removeEventListener('pointerdown', handleFirstInteraction);
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
       window.removeEventListener('keydown', handleFirstInteraction);
     };
-  }, [gameState, activeTab, profile.settings.music]);
+  }, [profile.settings.music]);
 
   useEffect(() => {
     const sdk = initTelegramSDK();
@@ -381,7 +381,6 @@ export default function App() {
   }, []);
 
   const handleRoundComplete = useCallback((stats: RoundStats) => {
-    audioManager.stopMusic();
     audioManager.playBeacon();
     triggerHaptic('success');
     trackEvent('round_complete', { score: stats.score });
@@ -704,7 +703,9 @@ export default function App() {
         <GameCanvas
           isPlaying={gameState === 'PLAYING'}
           isPaused={isPaused}
+          shipId={currentShip.id}
           shipColor={currentShip.color}
+          shipAccentColor={currentShip.accentColor}
           trailType={currentShip.trailType}
           backdropId={currentBackdrop.id}
           crtIntensity={profile.settings.crtIntensity}
