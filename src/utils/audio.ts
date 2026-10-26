@@ -1,5 +1,12 @@
 /**
- * Web Audio API Synth Engine for retro chip sound effects and 4 original synthwave loops.
+ * Synthwave Audio Engine strictly playing royalty-free MP3 music tracks:
+ * 1. Galaxy (/assets/aistudio/galaxy_0296b41f.mp3)
+ * 2. Surge Hope (/assets/aistudio/svrge-hope_1bd443e1.mp3)
+ * 3. Road to Home (/assets/aistudio/road-to-home_a16e017d.mp3)
+ * 4. Arcade Time (/assets/aistudio/arcade-time_26f2834c.mp3)
+ *
+ * Sound effects are strictly short retro tap/click tones.
+ * Zero procedural synthesizer music loops!
  */
 
 import { TargetType } from '../types/game';
@@ -23,7 +30,7 @@ export const SYNTHWAVE_TRACKS: SynthwaveTrackInfo[] = [
     id: 0,
     title: 'Galaxy',
     artist: 'Synthwave Studio',
-    source: 'Cosmic Synthwave',
+    source: 'Pixabay Synthwave',
     url: '/assets/aistudio/galaxy_0296b41f.mp3',
     bpm: 120,
     genre: 'Outrun Synthwave',
@@ -32,7 +39,7 @@ export const SYNTHWAVE_TRACKS: SynthwaveTrackInfo[] = [
     id: 1,
     title: 'Surge Hope',
     artist: 'SVRGE',
-    source: 'Cyber Drive',
+    source: 'BreakingCopyright',
     url: '/assets/aistudio/svrge-hope_1bd443e1.mp3',
     bpm: 128,
     genre: 'Darksynth Cyber',
@@ -41,7 +48,7 @@ export const SYNTHWAVE_TRACKS: SynthwaveTrackInfo[] = [
     id: 2,
     title: 'Road to Home',
     artist: 'Retrowave Audio',
-    source: 'Outrun Retrowave',
+    source: 'Pixabay Synthwave',
     url: '/assets/aistudio/road-to-home_a16e017d.mp3',
     bpm: 110,
     genre: '80s Retrowave',
@@ -50,7 +57,7 @@ export const SYNTHWAVE_TRACKS: SynthwaveTrackInfo[] = [
     id: 3,
     title: 'Arcade Time',
     artist: 'Arcade Synth',
-    source: 'Retro Arcade',
+    source: 'BreakingCopyright',
     url: '/assets/aistudio/arcade-time_26f2834c.mp3',
     bpm: 124,
     genre: 'Arcade Synthpop',
@@ -64,16 +71,72 @@ class SoundEngine {
   private volumeFx: number = 0.8;
   private volumeMusic: number = 0.6;
   private isMusicPlaying: boolean = false;
-  private musicTimer: number | null = null;
-  private noteIndex: number = 0;
-  private currentLoopIndex: number = 0;
   private currentTrackIndex: number = 0;
   private htmlAudio: HTMLAudioElement | null = null;
 
   constructor() {
     soundscapeManager.setMusicCallback((trackIndex) => {
-      this.startSynthwaveLoop(trackIndex ?? 0);
+      this.startSynthwaveLoop(trackIndex ?? this.currentTrackIndex);
     });
+
+    if (typeof window !== 'undefined') {
+      const handleUserGesture = () => {
+        this.unlockAudio();
+      };
+      window.addEventListener('pointerdown', handleUserGesture);
+      window.addEventListener('click', handleUserGesture);
+      window.addEventListener('touchstart', handleUserGesture);
+      window.addEventListener('keydown', handleUserGesture);
+    }
+  }
+
+  public unlockAudio() {
+    if (typeof window === 'undefined') return;
+
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) {
+        try {
+          this.ctx = new AudioCtx();
+        } catch {
+          this.ctx = null;
+        }
+      }
+    }
+
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+
+    if (this.musicEnabled && this.isMusicPlaying) {
+      this.playHtmlAudioTrack(this.currentTrackIndex);
+    }
+  }
+
+  private playHtmlAudioTrack(trackIndex: number) {
+    if (typeof window === 'undefined') return;
+
+    const validIndex = Math.max(0, Math.min(trackIndex, SYNTHWAVE_TRACKS.length - 1));
+    const track = SYNTHWAVE_TRACKS[validIndex];
+    if (!track) return;
+
+    if (!this.htmlAudio) {
+      this.htmlAudio = new Audio();
+      this.htmlAudio.loop = true;
+    }
+
+    if (!this.htmlAudio.src || !this.htmlAudio.src.endsWith(track.url)) {
+      this.htmlAudio.src = track.url;
+    }
+
+    this.htmlAudio.volume = Math.max(0, Math.min(1, this.volumeMusic * 0.7));
+
+    const playPromise = this.htmlAudio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((err) => {
+        console.warn('Synthwave HTML5 track waiting for user gesture:', err?.message || err);
+      });
+    }
   }
 
   private initCtx() {
@@ -99,11 +162,15 @@ class SoundEngine {
     this.soundEnabled = this.volumeFx > 0;
     this.musicEnabled = this.volumeMusic > 0;
     soundscapeManager.setVolumes(this.volumeFx, this.volumeMusic);
+
     if (this.htmlAudio) {
       this.htmlAudio.volume = Math.max(0, Math.min(1, this.volumeMusic * 0.7));
     }
+
     if (!this.musicEnabled && this.isMusicPlaying) {
       this.stopMusic();
+    } else if (this.musicEnabled && !this.isMusicPlaying) {
+      this.startSynthwaveLoop(this.currentTrackIndex);
     }
   }
 
@@ -117,10 +184,11 @@ class SoundEngine {
     soundscapeManager.setMusic(enabled);
     if (!enabled && this.isMusicPlaying) {
       this.stopMusic();
+    } else if (enabled && !this.isMusicPlaying) {
+      this.startSynthwaveLoop(this.currentTrackIndex);
     }
   }
 
-  // Play retro tap chime (pitch varies with combo level)
   public playTap(comboMultiplier: number = 1) {
     if (!this.soundEnabled) return;
     this.initCtx();
@@ -133,23 +201,22 @@ class SoundEngine {
       osc.type = 'square';
       const baseFreq = 350 + Math.min(comboMultiplier, 10) * 110;
       osc.frequency.setValueAtTime(baseFreq, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.8, this.ctx.currentTime + 0.08);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.8, this.ctx.currentTime + 0.05);
 
-      const gainVal = Math.min(0.25, 0.15 * this.volumeFx);
+      const gainVal = Math.min(0.2, 0.12 * this.volumeFx);
       gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
 
       osc.start();
-      osc.stop(this.ctx.currentTime + 0.08);
+      osc.stop(this.ctx.currentTime + 0.05);
     } catch {
       // Ignored
     }
   }
 
-  // Target tap click sound effect
   public playTargetSound(_type: TargetType, combo: number = 1) {
     this.playTap(combo);
   }
@@ -182,14 +249,6 @@ class SoundEngine {
     this.playTap(3);
   }
 
-  // Synthwave Loop melodic notes fallback
-  private synthLoops = [
-    [110, 130.81, 146.83, 164.81, 110, 130.81, 196.00, 164.81],
-    [146.83, 174.61, 220, 261.63, 146.83, 220, 293.66, 261.63],
-    [98.00, 123.47, 146.83, 185.00, 98.00, 146.83, 220, 185.00],
-    [130.81, 164.81, 196.00, 246.94, 130.81, 196.00, 261.63, 246.94],
-  ];
-
   public getTracks(): SynthwaveTrackInfo[] {
     return SYNTHWAVE_TRACKS;
   }
@@ -201,140 +260,51 @@ class SoundEngine {
   public selectTrack(trackIndex: number) {
     const validIndex = Math.max(0, Math.min(trackIndex, SYNTHWAVE_TRACKS.length - 1));
     this.currentTrackIndex = validIndex;
-    this.currentLoopIndex = validIndex;
-
     this.stopMusic();
     if (this.musicEnabled) {
       this.startSynthwaveLoop(validIndex);
     }
   }
 
-  public startSynthwaveLoop(loopIndex: number = 0) {
+  public startSynthwaveLoop(loopIndex?: number) {
     if (!this.musicEnabled) return;
 
-    const validIndex = Math.max(0, Math.min(loopIndex, SYNTHWAVE_TRACKS.length - 1));
+    const validIndex = loopIndex !== undefined
+      ? Math.max(0, Math.min(loopIndex, SYNTHWAVE_TRACKS.length - 1))
+      : this.currentTrackIndex;
 
-    // If music is already playing the exact requested track, do not restart mid-song
-    if (this.isMusicPlaying && this.currentTrackIndex === validIndex) {
-      if (this.htmlAudio) {
-        this.htmlAudio.volume = Math.max(0, Math.min(1, this.volumeMusic * 0.7));
-      }
+    if (this.isMusicPlaying && this.currentTrackIndex === validIndex && this.htmlAudio && !this.htmlAudio.paused) {
+      this.htmlAudio.volume = Math.max(0, Math.min(1, this.volumeMusic * 0.7));
       return;
     }
 
-    // Stop all playing music and timers first to avoid overlapping tracks
-    this.stopMusic();
-
     this.currentTrackIndex = validIndex;
-    this.currentLoopIndex = validIndex;
     this.isMusicPlaying = true;
 
-    const track = SYNTHWAVE_TRACKS[validIndex];
-    if (typeof window !== 'undefined' && track?.url) {
-      try {
-        if (!this.htmlAudio) {
-          this.htmlAudio = new Audio();
-          this.htmlAudio.loop = true;
-        }
-        this.htmlAudio.src = track.url;
-        this.htmlAudio.volume = Math.max(0, Math.min(1, this.volumeMusic * 0.7));
-        const playPromise = this.htmlAudio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(() => {
-            if (this.isMusicPlaying) {
-              this.playSynthesizedWebAudioLoop();
-            }
-          });
-        }
-      } catch {
-        if (this.isMusicPlaying) {
-          this.playSynthesizedWebAudioLoop();
-        }
-      }
-    } else {
-      this.playSynthesizedWebAudioLoop();
-    }
-  }
-
-  private playSynthesizedWebAudioLoop() {
-    if (this.musicTimer !== null) {
-      clearTimeout(this.musicTimer);
-      this.musicTimer = null;
-    }
-
-    if (!this.isMusicPlaying || !this.musicEnabled) return;
-
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const synthNotes = this.synthLoops[this.currentLoopIndex] || this.synthLoops[0];
-    this.noteIndex = 0;
-
-    const playNextNote = () => {
-      if (!this.isMusicPlaying || !this.musicEnabled || !this.ctx) {
-        if (this.musicTimer !== null) {
-          clearTimeout(this.musicTimer);
-          this.musicTimer = null;
-        }
-        return;
-      }
-
-      try {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-
-        osc.type = 'sawtooth';
-        const freq = synthNotes[this.noteIndex % synthNotes.length];
-        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-
-        const musicGainVal = Math.min(0.08, 0.06 * this.volumeMusic);
-        gain.gain.setValueAtTime(musicGainVal, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.18);
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.18);
-      } catch {
-        // Ignored
-      }
-
-      this.noteIndex++;
-      if (this.isMusicPlaying) {
-        this.musicTimer = window.setTimeout(playNextNote, 180);
-      }
-    };
-
-    playNextNote();
+    this.playHtmlAudioTrack(validIndex);
   }
 
   public switchLoop(loopIndex: number) {
     const next = Math.max(0, Math.min(loopIndex, SYNTHWAVE_TRACKS.length - 1));
-    if (next !== this.currentTrackIndex && this.isMusicPlaying) {
+    if (next !== this.currentTrackIndex) {
       this.selectTrack(next);
     }
   }
 
   public stopMusic() {
     this.isMusicPlaying = false;
-
-    if (this.musicTimer !== null) {
-      clearTimeout(this.musicTimer);
-      this.musicTimer = null;
-    }
-
     if (this.htmlAudio) {
       try {
         this.htmlAudio.pause();
-        this.htmlAudio.currentTime = 0;
       } catch {}
     }
   }
 
-  public startMenuAmbient(scene: MenuScene = 'orbit') {
+  public startMenuAmbient(_scene: MenuScene = 'orbit') {
     if (!this.musicEnabled) return;
-    this.startSynthwaveLoop(0);
+    if (!this.isMusicPlaying) {
+      this.startSynthwaveLoop(this.currentTrackIndex);
+    }
   }
 
   public stopMenuAmbient() {
@@ -374,7 +344,7 @@ class SoundEngine {
   }
 
   public playNavHover() {
-    // Subtle tap on hover if audio enabled
+    // Subtle hover tap if needed
   }
 
   public playNavSound(_action: NavSoundAction, _context?: string) {
@@ -383,4 +353,3 @@ class SoundEngine {
 }
 
 export const audioManager = new SoundEngine();
-
